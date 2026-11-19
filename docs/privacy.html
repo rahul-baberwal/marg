@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy – Marg: Fake GPS &amp; Route Mocker</title>
+<meta name="description" content="Privacy policy for Marg: Fake GPS &amp; Route Mocker, an Android app by Rahul Baberwal.">
+<link rel="icon" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Hanken+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="top"><div class="wrap"><header class="bar">
+  <a class="brand" href="./"><img src="assets/icon.png" alt="" width="40" height="40">Marg</a>
+  <nav aria-label="Main"><a href="./">Home</a><a href="https://rahulbaberwal.com">Developer</a></nav>
+</header></div></div>
+
+<main class="wrap">
+<article class="prose">
+  <h1>Privacy policy</h1>
+  <p class="meta">Marg: Fake GPS &amp; Route Mocker (package com.rahulbaberwal.marg). Effective 19 November 2026.</p>
+
+  <p>Marg is developed by Rahul Baberwal (“I”, “me”). This policy explains what the app does with your information. In short: Marg has no accounts, no ads and no analytics, and I don’t receive or store any personal data about you.</p>
+
+  <h2>Your location</h2>
+  <p>Marg does not read, record or send your real location. The positions it produces are calculated on your phone from the start and destination you choose, and are handed to Android’s mock location system. They are not uploaded anywhere by Marg.</p>
+  <p>Android requires the location permission for an app to run a location foreground service, which is why Marg asks for it.</p>
+
+  <h2>Network requests Marg makes</h2>
+  <p>Marg needs the internet for two things. Both go to public OpenStreetMap services, not to my servers.</p>
+  <table>
+    <tr><th>Purpose</th><th>Service</th><th>What is sent</th></tr>
+    <tr><td>Calculate a route</td><td>OpenStreetMap-Germany routing (routing.openstreetmap.de)</td><td>The start and destination coordinates you picked and the travel mode. Your IP address is visible to the service, as with any web request.</td></tr>
+    <tr><td>Show the map</td><td>OpenStreetMap tile server (tile.openstreetmap.org)</td><td>Which map tiles to load for the area you are viewing, and your IP address.</td></tr>
+  </table>
+  <p>These services have their own policies. See the <a href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap Foundation privacy policy</a>. I don’t control them.</p>
+
+  <h2>Information stored on your device</h2>
+  <p>The route you select and your settings (such as speed) are kept in the app’s memory while it runs. Marg does not create an account or save your history on my servers, because I don’t operate any.</p>
+
+  <h2>Permissions</h2>
+  <ul>
+    <li><strong>Location:</strong> required by Android to run the mock location service. Not sent anywhere.</li>
+    <li><strong>Notifications:</strong> to show the “Marg is mocking your location” notification with a Stop button.</li>
+    <li><strong>Foreground service (location):</strong> keeps the simulation running when the app is in the background.</li>
+    <li><strong>Internet:</strong> for routing and map tiles, as described above.</li>
+  </ul>
+
+  <h2>Sharing, selling and advertising</h2>
+  <p>I don’t sell or share personal data. Marg contains no advertising and no analytics or crash-reporting SDKs.</p>
+
+  <h2>Children</h2>
+  <p>Marg is a developer and testing tool and is not directed at children under 13. I don’t knowingly collect information from children.</p>
+
+  <h2>Responsible use</h2>
+  <p>Marg is intended for app development, testing, demos and learning. You are responsible for following the laws and the terms of any app or service you use it with.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If the app changes in a way that affects your privacy, I will update this page and the effective date above.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy: <a href="mailto:YOUR_EMAIL@rahulbaberwal.com"><span class="todo">YOUR_EMAIL@rahulbaberwal.com</span></a>. More about the developer: <a href="https://rahulbaberwal.com">rahulbaberwal.com</a>.</p>
+</article>
+</main>
+
+<footer><div class="wrap">
+  <span>© 2026 Rahul Baberwal. Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>.</span>
+  <span><a href="./">Home</a> · <a href="https://rahulbaberwal.com">rahulbaberwal.com</a></span>
+</div></footer>
+</body>
+</html>
