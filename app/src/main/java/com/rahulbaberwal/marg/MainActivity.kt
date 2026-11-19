@@ -139,20 +139,34 @@ class MainActivity : AppCompatActivity() {
         b.toggleMode.addOnButtonCheckedListener { _, id, checked ->
             if (!checked) return@addOnButtonCheckedListener
             mode = when (id) {
+                R.id.btnDrive -> Mode.DRIVE
                 R.id.btnWalk -> Mode.WALK
                 R.id.btnBike -> Mode.BIKE
                 R.id.btnTrain -> Mode.TRAIN
+                R.id.btnFixed -> Mode.FIXED
                 else -> Mode.DRIVE
             }
-            b.sliderSpeed.value = mode.defaultKmh.toFloat()
-            if (start != null && end != null) fetchRoute()
+            applyModeUI(mode)
         }
         b.sliderSpeed.addOnChangeListener { _, v, _ ->
-            MockLocationService.speedKmh = v.toDouble()
-            b.tvSpeed.text = "${v.toInt()} km/h"
+            if (mode == Mode.FIXED) {
+                MockLocationService.indoorRadiusM = v.toDouble()
+                updateSpeedLabel(v)
+            } else {
+                MockLocationService.speedKmh = v.toDouble()
+                updateSpeedLabel(v)
+            }
             updateInfo()
         }
         b.switchJitter.setOnCheckedChangeListener { _, on -> MockLocationService.jitter = on }
+
+        // Initialize default Drive mode
+        b.toggleMode.check(R.id.btnDrive)
+        mode = Mode.DRIVE
+        MockLocationService.speedKmh = 40.0
+        MockLocationService.jitter = true
+        MockLocationService.isFixedMode = false
+        applyModeUI(Mode.DRIVE)
 
         b.btnPlay.setOnClickListener {
             when (MockLocationService.state.value) {
@@ -204,7 +218,11 @@ class MainActivity : AppCompatActivity() {
         val db = DialogLocationPickerBinding.inflate(layoutInflater)
         dialog.setContentView(db.root)
 
-        val targetName = if (target == PointTarget.START) "Start Location" else "Destination"
+        val targetName = if (target == PointTarget.START) {
+            if (mode == Mode.FIXED) "Fixed Location" else "Start Location"
+        } else {
+            "Destination"
+        }
         db.tvPickerTitle.text = "Set $targetName"
         db.tvMapPrompt.text = "Tap below or long-press on the map to set $targetName."
 
@@ -351,6 +369,9 @@ class MainActivity : AppCompatActivity() {
             start = p
             b.tvStartLocation.text = initialText
             b.btnClearStart.visibility = View.VISIBLE
+            if (mode == Mode.FIXED) {
+                MockLocationService.fixedLocation = p
+            }
         } else {
             end = p
             b.tvEndLocation.text = initialText
@@ -373,7 +394,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (start != null && end != null) {
+        if (mode == Mode.FIXED) {
+            map?.easeCamera(CameraUpdateFactory.newLatLngZoom(LatLng(p.lat, p.lon), 16.0), 600)
+            b.tvInfo.text = "Fixed location ready. Tap Start to mock indoor presence."
+        } else if (start != null && end != null) {
             fetchRoute()
         } else {
             map?.easeCamera(CameraUpdateFactory.newLatLngZoom(LatLng(p.lat, p.lon), 13.0), 600)
@@ -395,18 +419,23 @@ class MainActivity : AppCompatActivity() {
         }
         if (target == PointTarget.START) {
             start = null
-            b.tvStartLocation.text = "Start: Search, lat/long or map"
+            b.tvStartLocation.text = if (mode == Mode.FIXED) "Fixed Location: Search, lat/long or map" else "Start: Search, lat/long or map"
             b.btnClearStart.visibility = View.GONE
+            MockLocationService.fixedLocation = null
         } else {
             end = null
             b.tvEndLocation.text = "Destination: Search, lat/long or map"
             b.btnClearEnd.visibility = View.GONE
         }
-        route = null
-        map?.style?.getSourceAs<GeoJsonSource>("route")?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+        clearRouteLine()
         refreshPoints()
         updateButtons(MockLocationService.state.value)
-        b.tvInfo.text = "Choose points by search, lat/long or long-press on map."
+        updateInfo()
+    }
+
+    private fun clearRouteLine() {
+        route = null
+        map?.style?.getSourceAs<GeoJsonSource>("route")?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
     }
 
     private fun swapPoints() {
@@ -432,8 +461,7 @@ class MainActivity : AppCompatActivity() {
         if (start != null && end != null) {
             fetchRoute()
         } else {
-            route = null
-            map?.style?.getSourceAs<GeoJsonSource>("route")?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+            clearRouteLine()
             updateButtons(MockLocationService.state.value)
         }
     }
@@ -452,6 +480,11 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        if (mode == Mode.FIXED) {
+            applyLocationPoint(PointTarget.START, p)
+            return
+        }
+
         if (start == null || end != null) {
             clearLocationPoint(PointTarget.END)
             applyLocationPoint(PointTarget.START, p)
@@ -464,7 +497,9 @@ class MainActivity : AppCompatActivity() {
     private fun refreshPoints() {
         val f = mutableListOf<Feature>()
         start?.let { f += Feature.fromGeometry(Point.fromLngLat(it.lon, it.lat)).apply { addStringProperty("color", "#16A34A") } }
-        end?.let { f += Feature.fromGeometry(Point.fromLngLat(it.lon, it.lat)).apply { addStringProperty("color", "#DC2626") } }
+        if (mode != Mode.FIXED) {
+            end?.let { f += Feature.fromGeometry(Point.fromLngLat(it.lon, it.lat)).apply { addStringProperty("color", "#DC2626") } }
+        }
         map?.style?.getSourceAs<GeoJsonSource>("points")?.setGeoJson(FeatureCollection.fromFeatures(f))
     }
 
@@ -472,6 +507,72 @@ class MainActivity : AppCompatActivity() {
         val src = map?.style?.getSourceAs<GeoJsonSource>("me") ?: return
         if (p == null) src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
         else src.setGeoJson(Point.fromLngLat(p.lon, p.lat))
+    }
+
+    private fun applyModeUI(m: Mode) {
+        if (m == Mode.FIXED) {
+            MockLocationService.isFixedMode = true
+            b.rowEnd.visibility = View.GONE
+            b.btnSwapPoints.visibility = View.GONE
+            b.progress.visibility = View.GONE
+            b.tvStartLocation.text = if (start != null) {
+                b.tvStartLocation.text
+            } else {
+                "Fixed Location: Search, lat/long or map"
+            }
+            b.sliderSpeed.valueFrom = 0f
+            b.sliderSpeed.valueTo = 30f
+            b.sliderSpeed.stepSize = 1f
+            b.sliderSpeed.value = MockLocationService.indoorRadiusM.toFloat().coerceIn(0f, 30f)
+            updateSpeedLabel(b.sliderSpeed.value)
+            b.switchJitter.text = "Realistic GPS jitter (indoor walking)"
+
+            clearRouteLine()
+            refreshPoints()
+            if (start != null) {
+                MockLocationService.fixedLocation = start
+                map?.easeCamera(CameraUpdateFactory.newLatLngZoom(LatLng(start!!.lat, start!!.lon), 16.0), 600)
+            }
+            updateButtons(MockLocationService.state.value)
+            updateInfo()
+        } else {
+            MockLocationService.isFixedMode = false
+            b.rowEnd.visibility = View.VISIBLE
+            b.btnSwapPoints.visibility = View.VISIBLE
+            b.progress.visibility = View.VISIBLE
+            b.tvStartLocation.text = if (start != null) {
+                b.tvStartLocation.text
+            } else {
+                "Start: Search, lat/long or map"
+            }
+            b.sliderSpeed.valueFrom = 1f
+            b.sliderSpeed.valueTo = 200f
+            b.sliderSpeed.stepSize = 1f
+            b.sliderSpeed.value = m.defaultKmh.toFloat()
+            updateSpeedLabel(b.sliderSpeed.value)
+            MockLocationService.speedKmh = m.defaultKmh.toDouble()
+            b.switchJitter.text = "Realistic GPS jitter"
+
+            refreshPoints()
+            if (start != null && end != null) {
+                fetchRoute()
+            }
+            updateButtons(MockLocationService.state.value)
+            updateInfo()
+        }
+    }
+
+    private fun updateSpeedLabel(v: Float) {
+        if (mode == Mode.FIXED) {
+            val r = v.toInt()
+            b.tvSpeed.text = if (r == 0) {
+                "Fixed spot only (0m wander, subtle antenna noise)"
+            } else {
+                "Indoor wander: ~${r}m radius (walking inside home)"
+            }
+        } else {
+            b.tvSpeed.text = "${v.toInt()} km/h"
+        }
     }
 
     // ---- routing ----
@@ -500,6 +601,37 @@ class MainActivity : AppCompatActivity() {
     private fun updateInfo() {
         val s = MockLocationService.state.value
         val pos = MockLocationService.position.value
+
+        if (mode == Mode.FIXED) {
+            when (s) {
+                SimState.RUNNING -> {
+                    val coordStr = if (pos != null) "%.5f, %.5f".format(pos.lat, pos.lon) else ""
+                    val radius = b.sliderSpeed.value.toInt()
+                    b.tvInfo.text = "Fixed mode active • Walking drift (~${radius}m radius) • $coordStr"
+                }
+                SimState.PAUSED -> {
+                    val coordStr = if (pos != null) "%.5f, %.5f".format(pos.lat, pos.lon) else ""
+                    b.tvInfo.text = "Paused at fixed location: $coordStr"
+                    if (pos != null) {
+                        lifecycleScope.launch {
+                            val name = withContext(Dispatchers.IO) { GeocodingRepository.reverse(pos.lat, pos.lon) }
+                            if (name != null && MockLocationService.state.value == SimState.PAUSED) {
+                                b.tvInfo.text = "Paused at: $name · $coordStr"
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    if (start == null) {
+                        b.tvInfo.text = "Select a fixed location by search, lat/long or map."
+                    } else {
+                        b.tvInfo.text = "Fixed location ready. Tap Start to mock indoor presence."
+                    }
+                }
+            }
+            return
+        }
+
         if (s == SimState.PAUSED && pos != null) {
             val pct = (MockLocationService.progress.value * 100).toInt()
             val coordStr = "%.5f, %.5f".format(pos.lat, pos.lon)
@@ -513,10 +645,22 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val r = route ?: return
+        val r = route
+        if (r == null) {
+            if (start == null && end == null) {
+                b.tvInfo.text = "Choose points by search, lat/long or long-press on map."
+            } else if (start != null && end == null) {
+                b.tvInfo.text = "Start set. Choose destination to route, or select Fixed mode."
+            } else if (start == null && end != null) {
+                b.tvInfo.text = "Destination set. Select start location."
+            }
+            return
+        }
+
         val km = r.distanceM / 1000
-        val mins = (r.distanceM / (b.sliderSpeed.value / 3.6) / 60).toInt()
-        b.tvInfo.text = "%.1f km · about %d min at %d km/h".format(km, mins, b.sliderSpeed.value.toInt())
+        val speed = b.sliderSpeed.value.coerceAtLeast(1f)
+        val mins = (r.distanceM / (speed / 3.6) / 60).toInt()
+        b.tvInfo.text = "%.1f km · about %d min at %d km/h".format(km, mins, speed.toInt())
     }
 
     // ---- simulation control ----
@@ -530,7 +674,12 @@ class MainActivity : AppCompatActivity() {
             SimState.PAUSED -> "Reset"
             else -> "Stop"
         }
-        b.btnPlay.isEnabled = route != null || s == SimState.RUNNING || s == SimState.PAUSED
+        val canStart = if (mode == Mode.FIXED) {
+            start != null || s == SimState.RUNNING || s == SimState.PAUSED
+        } else {
+            route != null || s == SimState.RUNNING || s == SimState.PAUSED
+        }
+        b.btnPlay.isEnabled = canStart
         b.btnStop.isEnabled = s == SimState.RUNNING || s == SimState.PAUSED
     }
 
@@ -542,7 +691,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startSimulation() {
+        if (mode == Mode.FIXED) {
+            val s = start
+            if (s == null) {
+                toast("Select a fixed location first")
+                return
+            }
+            MockLocationService.isFixedMode = true
+            MockLocationService.fixedLocation = s
+            MockLocationService.route = listOf(s)
+            MockLocationService.indoorRadiusM = b.sliderSpeed.value.toDouble()
+            MockLocationService.jitter = b.switchJitter.isChecked
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, MockLocationService::class.java).setAction(MockLocationService.ACTION_START)
+            )
+            return
+        }
+
         val r = route ?: return
+        MockLocationService.isFixedMode = false
         MockLocationService.route = r.points
         MockLocationService.speedKmh = b.sliderSpeed.value.toDouble()
         MockLocationService.jitter = b.switchJitter.isChecked
@@ -579,7 +747,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() { b.mapView.onStop(); super.onStop() }
     override fun onLowMemory() { super.onLowMemory(); b.mapView.onLowMemory() }
     override fun onDestroy() { b.mapView.onDestroy(); super.onDestroy() }
-    override fun onSaveInstanceState(out: Bundle) { super.onSaveInstanceState(out); b.mapView.onSaveInstanceState(out) }
+    override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); b.mapView.onSaveInstanceState(outState) }
 
     companion object {
         // OSM raster tiles for development. For production, use a self-hosted or commercial vector tile source.

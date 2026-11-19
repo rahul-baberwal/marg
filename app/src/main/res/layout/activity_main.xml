@@ -188,13 +188,28 @@
                 app:singleSelection="true">
 
                 <Button
+                    android:id="@+id/btnDrive"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:insetLeft="0dp"
+                    android:insetRight="0dp"
+                    android:paddingHorizontal="2dp"
+                    android:text="Drive"
+                    android:textSize="12sp" />
+
+                <Button
                     android:id="@+id/btnWalk"
                     style="?attr/materialButtonOutlinedStyle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:insetLeft="0dp"
+                    android:insetRight="0dp"
                     android:paddingHorizontal="2dp"
-                    android:text="Walk" />
+                    android:text="Walk"
+                    android:textSize="12sp" />
 
                 <Button
                     android:id="@+id/btnBike"
@@ -202,17 +217,11 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:insetLeft="0dp"
+                    android:insetRight="0dp"
                     android:paddingHorizontal="2dp"
-                    android:text="Cycle" />
-
-                <Button
-                    android:id="@+id/btnDrive"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:paddingHorizontal="2dp"
-                    android:text="Drive" />
+                    android:text="Cycle"
+                    android:textSize="12sp" />
 
                 <Button
                     android:id="@+id/btnTrain"
@@ -220,8 +229,23 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:insetLeft="0dp"
+                    android:insetRight="0dp"
                     android:paddingHorizontal="2dp"
-                    android:text="Train" />
+                    android:text="Train"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnFixed"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:insetLeft="0dp"
+                    android:insetRight="0dp"
+                    android:paddingHorizontal="2dp"
+                    android:text="Fixed"
+                    android:textSize="12sp" />
             </com.google.android.material.button.MaterialButtonToggleGroup>
 
             <TextView
@@ -245,7 +269,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:checked="true"
-                android:text="Realistic GPS jitter" />
+                android:text="Realistic GPS jitter (indoor walking)" />
 
             <LinearLayout
                 android:layout_width="match_parent"

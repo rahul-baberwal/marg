@@ -53,20 +53,20 @@ class MockLocationService : Service() {
             ACTION_PAUSE -> {
                 if (state.value == SimState.RUNNING) {
                     state.value = SimState.PAUSED
-                    updateNotification("Paused at current location")
+                    updateNotification(if (isFixedMode) "Paused at fixed location" else "Paused at current location")
                 }
             }
             ACTION_RESUME -> {
                 if (state.value == SimState.PAUSED) {
                     state.value = SimState.RUNNING
-                    updateNotification("Simulating route...")
+                    updateNotification(if (isFixedMode) "Simulating indoor presence..." else "Simulating route...")
                 }
             }
             ACTION_STOP -> {
                 // When stopped while running, stop on pause (hold current location, do not wipe out)
                 if (state.value == SimState.RUNNING) {
                     state.value = SimState.PAUSED
-                    updateNotification("Stopped at current location")
+                    updateNotification(if (isFixedMode) "Stopped at fixed location" else "Stopped at current location")
                 } else if (state.value == SimState.PAUSED) {
                     // Tapping stop while already paused resets to start
                     resetToStart()
@@ -82,19 +82,61 @@ class MockLocationService : Service() {
 
     private fun begin() {
         startForegroundCompat()
+        if (!setupProviders()) {
+            error.tryEmit("mock_not_selected")
+            shutdown(SimState.IDLE, keepPosition = false)
+            return
+        }
+
+        if (isFixedMode) {
+            val center = fixedLocation ?: route.firstOrNull() ?: position.value
+            if (center == null) {
+                error.tryEmit("No fixed location set")
+                shutdown(SimState.IDLE, keepPosition = false)
+                return
+            }
+            job?.cancel()
+            job = scope.launch { simulateFixed(center) }
+            return
+        }
+
         val pts = route
         if (pts.size < 2) {
             error.tryEmit("No route loaded")
             shutdown(SimState.IDLE, keepPosition = false)
             return
         }
-        if (!setupProviders()) {
-            error.tryEmit("mock_not_selected")
-            shutdown(SimState.IDLE, keepPosition = false)
-            return
-        }
         job?.cancel()
         job = scope.launch { simulate(pts) }
+    }
+
+    private suspend fun simulateFixed(center: P) {
+        state.value = SimState.RUNNING
+        progress.value = 0f
+        val wanderer = IndoorWanderer(center, indoorRadiusM)
+        position.value = center
+
+        while (true) {
+            delay(1000)
+            if (state.value == SimState.PAUSED) {
+                if (jitter) {
+                    val s = wanderer.tickStationary()
+                    pushIndoorState(s)
+                } else {
+                    push(position.value ?: center, 0f, 0f)
+                }
+                continue
+            }
+            if (state.value != SimState.RUNNING) break
+
+            wanderer.maxRadiusM = indoorRadiusM
+            if (jitter) {
+                val s = wanderer.tick()
+                pushIndoorState(s)
+            } else {
+                push(center, 0f, 0f)
+            }
+        }
     }
 
     private suspend fun simulate(pts: List<P>) {
@@ -112,13 +154,24 @@ class MockLocationService : Service() {
         state.value = SimState.RUNNING
         push(cur, lastBearing, 0f)
 
+        var pausedWanderer: IndoorWanderer? = null
+
         while (true) {
             delay(1000)
             if (state.value == SimState.PAUSED) {
-                // When paused or stopped on pause, keep holding the last location with speed = 0
-                push(cur, lastBearing, 0f)
+                // When paused or stopped on pause, keep holding the last location with organic drift
+                if (jitter) {
+                    if (pausedWanderer == null || haversine(pausedWanderer.center, cur) > 20.0) {
+                        pausedWanderer = IndoorWanderer(cur, 8.0)
+                    }
+                    val s = pausedWanderer.tickStationary()
+                    pushIndoorState(s)
+                } else {
+                    push(cur, lastBearing, 0f)
+                }
                 continue
             }
+            pausedWanderer = null
             if (state.value != SimState.RUNNING) break
 
             val mps = speedKmh / 3.6
@@ -157,23 +210,51 @@ class MockLocationService : Service() {
         false
     }
 
+    private fun pushIndoorState(s: IndoorLocationState) {
+        for (name in providers) {
+            val l = Location(name).apply {
+                latitude = s.point.lat
+                longitude = s.point.lon
+                altitude = s.altitude
+                accuracy = s.accuracy
+                speed = s.speedMps
+                bearing = s.bearing
+                time = System.currentTimeMillis()
+                elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    bearingAccuracyDegrees = 10f
+                    speedAccuracyMetersPerSecond = 0.2f
+                    verticalAccuracyMeters = 3f
+                }
+            }
+            try { lm.setTestProviderLocation(name, l) } catch (_: Exception) {}
+        }
+        position.value = s.point
+    }
+
     private fun push(p: P, bearing: Float, speedMps: Float) {
         var lat = p.lat
         var lon = p.lon
         if (jitter) {
-            lat += (Random.nextDouble() - 0.5) * 1.4e-5
-            lon += (Random.nextDouble() - 0.5) * 1.4e-5
+            // Subtle road micro-drift (~0.8m)
+            lat += (Random.nextDouble() - 0.5) * 0.8e-5
+            lon += (Random.nextDouble() - 0.5) * 0.8e-5
         }
         for (name in providers) {
             val l = Location(name).apply {
                 latitude = lat
                 longitude = lon
-                altitude = 0.0
-                accuracy = if (jitter) 3f + Random.nextFloat() * 4f else 3f
+                altitude = 15.0 + (Random.nextDouble() - 0.5) * 0.5
+                accuracy = if (jitter) 4f + Random.nextFloat() * 4f else 3f
                 speed = speedMps
                 this.bearing = bearing
                 time = System.currentTimeMillis()
                 elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    bearingAccuracyDegrees = 8f
+                    speedAccuracyMetersPerSecond = 0.25f
+                    verticalAccuracyMeters = 3f
+                }
             }
             try { lm.setTestProviderLocation(name, l) } catch (_: Exception) {}
         }
@@ -183,7 +264,7 @@ class MockLocationService : Service() {
     private fun resetToStart() {
         job?.cancel()
         val pts = route
-        val startP = if (pts.isNotEmpty()) pts[0] else null
+        val startP = if (isFixedMode) (fixedLocation ?: position.value) else if (pts.isNotEmpty()) pts[0] else null
         progress.value = 0f
         state.value = SimState.IDLE
         if (startP != null) {
@@ -226,9 +307,11 @@ class MockLocationService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
 
+        val notifTitle = if (isFixedMode) "Marg: Fixed indoor location active" else "Marg is mocking your location"
+
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_marg)
-            .setContentTitle("Marg is mocking your location")
+            .setContentTitle(notifTitle)
             .setContentText(contentText)
             .setContentIntent(open)
             .addAction(0, if (state.value == SimState.RUNNING) "Pause" else "Resume", pauseResume)
@@ -243,7 +326,7 @@ class MockLocationService : Service() {
     }
 
     private fun startForegroundCompat() {
-        val n = buildNotification("Tap to open, or control the simulation")
+        val n = buildNotification(if (isFixedMode) "Indoor walking presence active" else "Tap to open, or control the simulation")
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } else {
@@ -291,6 +374,9 @@ class MockLocationService : Service() {
         val progress = MutableStateFlow(0f)
         val error = MutableSharedFlow<String>(extraBufferCapacity = 1)
 
+        @Volatile var isFixedMode: Boolean = false
+        @Volatile var fixedLocation: P? = null
+        @Volatile var indoorRadiusM: Double = 10.0
         @Volatile var speedKmh: Double = 40.0
         @Volatile var jitter: Boolean = true
         @Volatile var route: List<P> = emptyList()

@@ -6,7 +6,7 @@ Package: `com.rahulbaberwal.marg`
 1. Open this folder in Android Studio (Koala or newer, JDK 17). Let Gradle sync.
 2. Run on a real device or emulator (Android 8.0+).
 3. On the device: Settings > Developer options > **Select mock location app** > Marg.
-4. In Marg: set Start and End (via search, coordinates, or map), pick Walk / Cycle / Drive / Train, press Start.
+4. In Marg: choose Drive (default), Walk, Cycle, Train, or Fixed location (with realistic indoor walking jitter like walking inside a home). Set points via search, coordinates, or map, then press Start.
 5. Open Google Maps or the app under test and watch the moving location.
 
 ## Data sources
