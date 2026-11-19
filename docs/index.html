@@ -1,122 +1,179 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Marg: Fake GPS &amp; Route Mocker – simulate walking, cycling and driving routes</title>
-<meta name="description" content="Marg is a fake GPS location changer for Android. Simulate a moving location along real roads and footpaths between two points, built for testing and demos in India.">
-<meta property="og:title" content="Marg: Fake GPS &amp; Route Mocker">
-<meta property="og:description" content="Simulate walking, cycling and driving routes on real roads. Fake GPS for Android testing.">
-<meta property="og:image" content="assets/icon.png">
-<link rel="icon" href="assets/icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Hanken+Grotesk:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Marg: Fake GPS &amp; Route Mocker – simulate walking, cycling and driving routes</title>
+  <meta name="description"
+    content="Marg is a fake GPS location changer for Android. Simulate a moving location along real roads and footpaths between two points, built for testing and demos in India.">
+  <meta property="og:title" content="Marg: Fake GPS &amp; Route Mocker">
+  <meta property="og:description"
+    content="Simulate walking, cycling and driving routes on real roads. Fake GPS for Android testing.">
+  <meta property="og:image" content="assets/icon.png">
+  <link rel="icon" href="assets/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Hanken+Grotesk:wght@400;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-<div class="top">
-  <div class="wrap">
-    <header class="bar">
-      <a class="brand" href="./"><img src="assets/icon.png" alt="" width="40" height="40">Marg</a>
-      <nav aria-label="Main">
-        <a href="#features">Features</a>
-        <a href="#setup">Setup</a>
-        <a href="#developer">Developer</a>
-        <a href="privacy.html">Privacy</a>
-      </nav>
-    </header>
-    <div class="hero">
-      <div>
-        <h1>Move along real roads without leaving your desk.</h1>
-        <p>Marg is a fake GPS location changer for Android. Pick two points, choose walk, cycle or drive, and your phone’s location travels the route live. Made for testing apps in India and anywhere OpenStreetMap has roads.</p>
-        <div class="cta">
-          <a class="btn primary" href="https://play.google.com/store/apps/details?id=com.rahulbaberwal.marg">Get it on Google Play</a>
-          <a class="btn ghost" href="#setup">How to set it up</a>
+  <div class="top">
+    <div class="wrap">
+      <header class="bar">
+        <a class="brand" href="./"><img src="assets/icon.png" alt="" width="40" height="40">Marg</a>
+        <nav aria-label="Main">
+          <a href="#features">Features</a>
+          <a href="#setup">Setup</a>
+          <a href="#developer">Developer</a>
+          <a href="privacy.html">Privacy</a>
+        </nav>
+      </header>
+      <div class="hero">
+        <div>
+          <h1>Move along real roads without leaving your desk.</h1>
+          <p>Marg is a fake GPS location changer for Android. Pick two points, choose walk, cycle or drive, and your
+            phone’s location travels the route live. Made for testing apps in India and anywhere OpenStreetMap has
+            roads.</p>
+          <div class="cta">
+            <a class="btn primary" href="https://play.google.com/store/apps/details?id=com.rahulbaberwal.marg">Get it on
+              Google Play</a>
+            <a class="btn ghost" href="#setup">How to set it up</a>
+          </div>
+        </div>
+        <svg class="route" viewBox="0 0 480 360" role="img"
+          aria-label="A dotted route curving from a start point to a destination, with a marker travelling along it">
+          <g stroke="#2B5D66" stroke-width="2" fill="none" opacity=".7">
+            <path d="M0,120 L480,150" />
+            <path d="M0,250 L480,230" />
+            <path d="M110,0 L140,360" />
+            <path d="M300,0 L270,360" />
+            <path d="M0,330 L200,200 L480,300" />
+          </g>
+          <path id="r" d="M60,300 C140,300 120,200 220,190 S330,230 330,130 S400,70 430,60" fill="none" stroke="#FF9933"
+            stroke-width="6" stroke-linecap="round" stroke-dasharray="1 13" />
+          <circle cx="60" cy="300" r="9" fill="#CFE7E2" />
+          <circle cx="430" cy="60" r="12" fill="none" stroke="#FF9933" stroke-width="4" />
+          <circle cx="430" cy="60" r="4" fill="#fff" />
+          <circle id="dot" r="9" fill="#fff" stroke="#FF9933" stroke-width="4" cx="60" cy="300">
+            <animateMotion id="mv" dur="9s" repeatCount="indefinite" calcMode="linear">
+              <mpath href="#r" />
+            </animateMotion>
+          </circle>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <section id="features">
+      <div class="wrap">
+        <h2>What Marg does</h2>
+        <p class="lead">Marg feeds Android’s mock location a realistic stream of positions, so any app that reads
+          location sees you moving.</p>
+        <dl class="features">
+          <div>
+            <dt>Follows real paths</dt>
+            <dd>Routes come from OpenStreetMap road and footpath data, not a straight line between two points.</dd>
+          </div>
+          <div>
+            <dt>Walk, cycle or drive</dt>
+            <dd>Each mode finds its own route. Walking can use footpaths that cars can’t.</dd>
+          </div>
+          <div>
+            <dt>Speed you control</dt>
+            <dd>Set 1 to 120 km/h and change it while the route is running.</dd>
+          </div>
+          <div>
+            <dt>Pause, resume, stop</dt>
+            <dd>Control the simulation from the app or from its notification.</dd>
+          </div>
+          <div>
+            <dt>Realistic GPS signal</dt>
+            <dd>Bearing, speed and small accuracy changes are sent with each position. Jitter can be switched off.</dd>
+          </div>
+          <div>
+            <dt>No account, no ads</dt>
+            <dd>Open the app and start. Marg doesn’t ask you to sign up or track you.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section id="setup">
+      <div class="wrap">
+        <h2>Set up in four steps</h2>
+        <p class="lead">Android only lets one app provide mock locations, and you choose it yourself.</p>
+        <ol class="steps">
+          <li>Turn on Developer options in your phone’s settings.</li>
+          <li>Open Developer options, tap <strong>Select mock location app</strong> and choose Marg.</li>
+          <li>In Marg, long-press the map to set the start, then long-press again to set the destination.</li>
+          <li>Choose Walk, Cycle or Drive, then tap <strong>Start</strong>. Open any map or the app you’re testing to
+            see the movement.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="screens">
+      <div class="wrap">
+        <h2>Screenshots</h2>
+        <div class="shots">
+          <figure>
+            <div class="shot"><img src="assets/screenshots/screen-1.png"
+                alt="Marg map with a start point, destination and route" loading="lazy"
+                onerror="this.parentElement.classList.add('missing');this.remove()"></div>
+            <figcaption>Set a start and a destination</figcaption>
+          </figure>
+          <figure>
+            <div class="shot"><img src="assets/screenshots/screen-2.png"
+                alt="Marg walk, cycle and drive modes with speed slider" loading="lazy"
+                onerror="this.parentElement.classList.add('missing');this.remove()"></div>
+            <figcaption>Pick a mode and speed</figcaption>
+          </figure>
+          <figure>
+            <div class="shot"><img src="assets/screenshots/screen-3.png"
+                alt="Marg simulating a live location moving along a route" loading="lazy"
+                onerror="this.parentElement.classList.add('missing');this.remove()"></div>
+            <figcaption>Watch the location move live</figcaption>
+          </figure>
         </div>
       </div>
-      <svg class="route" viewBox="0 0 480 360" role="img" aria-label="A dotted route curving from a start point to a destination, with a marker travelling along it">
-        <g stroke="#2B5D66" stroke-width="2" fill="none" opacity=".7">
-          <path d="M0,120 L480,150"/><path d="M0,250 L480,230"/><path d="M110,0 L140,360"/><path d="M300,0 L270,360"/><path d="M0,330 L200,200 L480,300"/>
-        </g>
-        <path id="r" d="M60,300 C140,300 120,200 220,190 S330,230 330,130 S400,70 430,60" fill="none" stroke="#FF9933" stroke-width="6" stroke-linecap="round" stroke-dasharray="1 13"/>
-        <circle cx="60" cy="300" r="9" fill="#CFE7E2"/>
-        <circle cx="430" cy="60" r="12" fill="none" stroke="#FF9933" stroke-width="4"/>
-        <circle cx="430" cy="60" r="4" fill="#fff"/>
-        <circle id="dot" r="9" fill="#fff" stroke="#FF9933" stroke-width="4" cx="60" cy="300">
-          <animateMotion id="mv" dur="9s" repeatCount="indefinite" calcMode="linear"><mpath href="#r"/></animateMotion>
-        </circle>
-      </svg>
+    </section>
+
+    <section id="use">
+      <div class="wrap">
+        <h2>Use it responsibly</h2>
+        <p class="note">Marg is for app testing, QA, demos and learning. Don’t use it to break the rules of other apps
+          or services, to cheat, or to mislead other people.</p>
+      </div>
+    </section>
+
+    <section id="developer">
+      <div class="wrap dev">
+        <h2>About the developer</h2>
+        <p>Marg is made by Rahul Baberwal. You can find more about me and my other work at <a
+            href="https://rahulbaberwal.com">rahulbaberwal.com</a>.</p>
+        <p>Questions, bugs or feature ideas: write to <a href="mailto:im@rahulbaberwal.com"><span
+              class="todo">im@rahulbaberwal.com</span></a>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© 2026 Rahul Baberwal. Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap
+          contributors</a>.</span>
+      <span><a href="privacy.html">Privacy policy</a> · <a href="https://rahulbaberwal.com">rahulbaberwal.com</a></span>
     </div>
-  </div>
-</div>
-
-<main>
-<section id="features">
-  <div class="wrap">
-    <h2>What Marg does</h2>
-    <p class="lead">Marg feeds Android’s mock location a realistic stream of positions, so any app that reads location sees you moving.</p>
-    <dl class="features">
-      <div><dt>Follows real paths</dt><dd>Routes come from OpenStreetMap road and footpath data, not a straight line between two points.</dd></div>
-      <div><dt>Walk, cycle or drive</dt><dd>Each mode finds its own route. Walking can use footpaths that cars can’t.</dd></div>
-      <div><dt>Speed you control</dt><dd>Set 1 to 120 km/h and change it while the route is running.</dd></div>
-      <div><dt>Pause, resume, stop</dt><dd>Control the simulation from the app or from its notification.</dd></div>
-      <div><dt>Realistic GPS signal</dt><dd>Bearing, speed and small accuracy changes are sent with each position. Jitter can be switched off.</dd></div>
-      <div><dt>No account, no ads</dt><dd>Open the app and start. Marg doesn’t ask you to sign up or track you.</dd></div>
-    </dl>
-  </div>
-</section>
-
-<section id="setup">
-  <div class="wrap">
-    <h2>Set up in four steps</h2>
-    <p class="lead">Android only lets one app provide mock locations, and you choose it yourself.</p>
-    <ol class="steps">
-      <li>Turn on Developer options in your phone’s settings.</li>
-      <li>Open Developer options, tap <strong>Select mock location app</strong> and choose Marg.</li>
-      <li>In Marg, long-press the map to set the start, then long-press again to set the destination.</li>
-      <li>Choose Walk, Cycle or Drive, then tap <strong>Start</strong>. Open any map or the app you’re testing to see the movement.</li>
-    </ol>
-  </div>
-</section>
-
-<section id="screens">
-  <div class="wrap">
-    <h2>Screenshots</h2>
-    <div class="shots">
-      <figure><div class="shot"><img src="assets/screenshots/screen-1.png" alt="Marg map with a start point, destination and route" loading="lazy" onerror="this.parentElement.classList.add('missing');this.remove()"></div><figcaption>Set a start and a destination</figcaption></figure>
-      <figure><div class="shot"><img src="assets/screenshots/screen-2.png" alt="Marg walk, cycle and drive modes with speed slider" loading="lazy" onerror="this.parentElement.classList.add('missing');this.remove()"></div><figcaption>Pick a mode and speed</figcaption></figure>
-      <figure><div class="shot"><img src="assets/screenshots/screen-3.png" alt="Marg simulating a live location moving along a route" loading="lazy" onerror="this.parentElement.classList.add('missing');this.remove()"></div><figcaption>Watch the location move live</figcaption></figure>
-    </div>
-  </div>
-</section>
-
-<section id="use">
-  <div class="wrap">
-    <h2>Use it responsibly</h2>
-    <p class="note">Marg is for app testing, QA, demos and learning. Don’t use it to break the rules of other apps or services, to cheat, or to mislead other people.</p>
-  </div>
-</section>
-
-<section id="developer">
-  <div class="wrap dev">
-    <h2>About the developer</h2>
-    <p>Marg is made by Rahul Baberwal. You can find more about me and my other work at <a href="https://rahulbaberwal.com">rahulbaberwal.com</a>.</p>
-    <p>Questions, bugs or feature ideas: write to <a href="mailto:YOUR_EMAIL@rahulbaberwal.com"><span class="todo">YOUR_EMAIL@rahulbaberwal.com</span></a>.</p>
-  </div>
-</section>
-</main>
-
-<footer>
-  <div class="wrap">
-    <span>© 2026 Rahul Baberwal. Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>.</span>
-    <span><a href="privacy.html">Privacy policy</a> · <a href="https://rahulbaberwal.com">rahulbaberwal.com</a></span>
-  </div>
-</footer>
-<script>
-if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  var m = document.getElementById('mv'); if (m) m.remove();
-}
-</script>
+  </footer>
+  <script>
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      var m = document.getElementById('mv'); if (m) m.remove();
+    }
+  </script>
 </body>
+
 </html>
