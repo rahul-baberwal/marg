@@ -1,21 +1,37 @@
 package com.rahulbaberwal.marg
 
 import android.Manifest
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rahulbaberwal.marg.databinding.ActivityMainBinding
+import com.rahulbaberwal.marg.databinding.DialogLocationPickerBinding
+import com.rahulbaberwal.marg.databinding.ItemSearchResultBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.android.MapLibre
@@ -40,6 +56,8 @@ import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 
+enum class PointTarget { START, END }
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var b: ActivityMainBinding
@@ -48,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     private var end: P? = null
     private var route: RouteResult? = null
     private var mode = Mode.DRIVE
+    private var pendingMapTarget: PointTarget? = null
 
     private val permLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
@@ -61,6 +80,22 @@ class MainActivity : AppCompatActivity() {
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
         b.mapView.onCreate(savedInstanceState)
+
+        ViewCompat.setOnApplyWindowInsetsListener(b.cardLocations) { view, insets ->
+            val statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            val lp = view.layoutParams as ViewGroup.MarginLayoutParams
+            lp.topMargin = statusBarHeight + (12 * resources.displayMetrics.density).toInt()
+            view.layoutParams = lp
+            insets
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(b.cardControls) { view, insets ->
+            val navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            val lp = view.layoutParams as ViewGroup.MarginLayoutParams
+            lp.bottomMargin = navBarHeight + (12 * resources.displayMetrics.density).toInt()
+            view.layoutParams = lp
+            insets
+        }
 
         b.mapView.getMapAsync { m ->
             map = m
@@ -90,11 +125,23 @@ class MainActivity : AppCompatActivity() {
             m.addOnMapLongClickListener { onLongPress(it); true }
         }
 
+        // Location selection click listeners
+        b.rowStart.setOnClickListener { showLocationPickerDialog(PointTarget.START) }
+        b.btnSearchStart.setOnClickListener { showLocationPickerDialog(PointTarget.START) }
+        b.btnClearStart.setOnClickListener { clearLocationPoint(PointTarget.START) }
+
+        b.rowEnd.setOnClickListener { showLocationPickerDialog(PointTarget.END) }
+        b.btnSearchEnd.setOnClickListener { showLocationPickerDialog(PointTarget.END) }
+        b.btnClearEnd.setOnClickListener { clearLocationPoint(PointTarget.END) }
+
+        b.btnSwapPoints.setOnClickListener { swapPoints() }
+
         b.toggleMode.addOnButtonCheckedListener { _, id, checked ->
             if (!checked) return@addOnButtonCheckedListener
             mode = when (id) {
                 R.id.btnWalk -> Mode.WALK
                 R.id.btnBike -> Mode.BIKE
+                R.id.btnTrain -> Mode.TRAIN
                 else -> Mode.DRIVE
             }
             b.sliderSpeed.value = mode.defaultKmh.toFloat()
@@ -114,15 +161,280 @@ class MainActivity : AppCompatActivity() {
                 else -> requestPermsAndStart()
             }
         }
-        b.btnStop.setOnClickListener { sendAction(MockLocationService.ACTION_STOP) }
+        b.btnStop.setOnClickListener {
+            if (MockLocationService.state.value == SimState.PAUSED) {
+                sendAction(MockLocationService.ACTION_RESET)
+            } else {
+                sendAction(MockLocationService.ACTION_STOP)
+            }
+        }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch { MockLocationService.state.collect { updateButtons(it) } }
+                launch {
+                    MockLocationService.state.collect {
+                        updateButtons(it)
+                        updateInfo()
+                    }
+                }
                 launch { MockLocationService.progress.collect { b.progress.setProgressCompat((it * 1000).toInt(), true) } }
-                launch { MockLocationService.position.collect { showMe(it) } }
+                launch {
+                    MockLocationService.position.collect {
+                        showMe(it)
+                        if (MockLocationService.state.value == SimState.PAUSED) {
+                            updateInfo()
+                        }
+                    }
+                }
                 launch { MockLocationService.error.collect { onServiceError(it) } }
             }
+        }
+    }
+
+    // ---- Location Picker Dialog ----
+    private fun showLocationPickerDialog(target: PointTarget) {
+        if (MockLocationService.state.value == SimState.RUNNING ||
+            MockLocationService.state.value == SimState.PAUSED
+        ) {
+            toast("Stop simulation before changing locations")
+            return
+        }
+
+        val dialog = BottomSheetDialog(this)
+        val db = DialogLocationPickerBinding.inflate(layoutInflater)
+        dialog.setContentView(db.root)
+
+        val targetName = if (target == PointTarget.START) "Start Location" else "Destination"
+        db.tvPickerTitle.text = "Set $targetName"
+        db.tvMapPrompt.text = "Tap below or long-press on the map to set $targetName."
+
+        fun showPanel(search: Boolean, coords: Boolean, map: Boolean) {
+            db.panelSearch.visibility = if (search) View.VISIBLE else View.GONE
+            db.panelCoords.visibility = if (coords) View.VISIBLE else View.GONE
+            db.panelMap.visibility = if (map) View.VISIBLE else View.GONE
+        }
+
+        db.togglePickerMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            when (checkedId) {
+                R.id.btnTabSearch -> showPanel(search = true, coords = false, map = false)
+                R.id.btnTabCoords -> {
+                    showPanel(search = false, coords = true, map = false)
+                    val curr = if (target == PointTarget.START) start else end
+                    if (curr != null) {
+                        db.etLatitude.setText("%.6f".format(curr.lat))
+                        db.etLongitude.setText("%.6f".format(curr.lon))
+                    }
+                }
+                R.id.btnTabMap -> showPanel(search = false, coords = false, map = true)
+            }
+        }
+
+        // 1. Search Panel
+        var searchJob: Job? = null
+        db.rvSearchResults.layoutManager = LinearLayoutManager(this)
+
+        fun doSearch(query: String) {
+            val q = query.trim()
+            if (q.length < 2) {
+                db.rvSearchResults.visibility = View.GONE
+                db.tvSearchEmpty.visibility = View.VISIBLE
+                db.tvSearchEmpty.text = "Search by place name, address, or coordinates"
+                db.searchProgress.visibility = View.GONE
+                return
+            }
+            db.searchProgress.visibility = View.VISIBLE
+            db.tvSearchEmpty.visibility = View.GONE
+            searchJob?.cancel()
+            searchJob = lifecycleScope.launch {
+                val results = withContext(Dispatchers.IO) {
+                    GeocodingRepository.search(q)
+                }
+                db.searchProgress.visibility = View.GONE
+                if (results.isEmpty()) {
+                    db.rvSearchResults.visibility = View.GONE
+                    db.tvSearchEmpty.visibility = View.VISIBLE
+                    db.tvSearchEmpty.text = "No places found for \"$q\""
+                } else {
+                    db.tvSearchEmpty.visibility = View.GONE
+                    db.rvSearchResults.visibility = View.VISIBLE
+                    db.rvSearchResults.adapter = SearchResultAdapter(results) { res ->
+                        val p = P(res.lat, res.lon)
+                        applyLocationPoint(target, p, res.name)
+                        dialog.dismiss()
+                    }
+                }
+            }
+        }
+
+        db.etSearch.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                doSearch(db.etSearch.text?.toString().orEmpty())
+                true
+            } else false
+        }
+
+        var debounceJob: Job? = null
+        db.etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                debounceJob?.cancel()
+                debounceJob = lifecycleScope.launch {
+                    delay(500)
+                    doSearch(s?.toString().orEmpty())
+                }
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        // 2. Lat/Long Panel
+        db.btnMapCenter.setOnClickListener {
+            val center = map?.cameraPosition?.target
+            if (center != null) {
+                db.etLatitude.setText("%.6f".format(center.latitude))
+                db.etLongitude.setText("%.6f".format(center.longitude))
+            } else {
+                toast("Map not ready yet")
+            }
+        }
+
+        db.btnPasteCoords.setOnClickListener {
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager
+            val clip = clipboard?.primaryClip?.getItemAt(0)?.text?.toString()?.trim()
+            if (clip.isNullOrEmpty()) {
+                toast("Clipboard is empty")
+                return@setOnClickListener
+            }
+            val match = Regex("""^([+-]?\d+(?:\.\d+)?)[,\s]+([+-]?\d+(?:\.\d+)?)$""").find(clip)
+            if (match != null) {
+                db.etLatitude.setText(match.groupValues[1])
+                db.etLongitude.setText(match.groupValues[2])
+                toast("Pasted coordinates")
+            } else {
+                db.togglePickerMode.check(R.id.btnTabSearch)
+                db.etSearch.setText(clip)
+                doSearch(clip)
+            }
+        }
+
+        db.btnApplyCoords.setOnClickListener {
+            val lat = db.etLatitude.text?.toString()?.toDoubleOrNull()
+            val lon = db.etLongitude.text?.toString()?.toDoubleOrNull()
+            if (lat == null || lat !in -90.0..90.0) {
+                toast("Enter valid latitude between -90 and 90")
+                return@setOnClickListener
+            }
+            if (lon == null || lon !in -180.0..180.0) {
+                toast("Enter valid longitude between -180 and 180")
+                return@setOnClickListener
+            }
+            val p = P(lat, lon)
+            applyLocationPoint(target, p, "%.5f, %.5f".format(lat, lon))
+            dialog.dismiss()
+        }
+
+        // 3. Map Select Panel
+        db.btnConfirmMapSelect.setOnClickListener {
+            pendingMapTarget = target
+            toast("Long-press on the map to set $targetName")
+            dialog.dismiss()
+        }
+
+        db.btnPickerClose.setOnClickListener { dialog.dismiss() }
+
+        dialog.show()
+    }
+
+    private fun applyLocationPoint(target: PointTarget, p: P, label: String? = null) {
+        val initialText = label ?: "%.5f, %.5f".format(p.lat, p.lon)
+        if (target == PointTarget.START) {
+            start = p
+            b.tvStartLocation.text = initialText
+            b.btnClearStart.visibility = View.VISIBLE
+        } else {
+            end = p
+            b.tvEndLocation.text = initialText
+            b.btnClearEnd.visibility = View.VISIBLE
+        }
+
+        refreshPoints()
+
+        // Asynchronously fetch reverse geocoded name if not already provided
+        if (label == null || label.startsWith("%.5f".format(p.lat).substring(0, 3))) {
+            lifecycleScope.launch {
+                val name = withContext(Dispatchers.IO) { GeocodingRepository.reverse(p.lat, p.lon) }
+                if (name != null) {
+                    if (target == PointTarget.START && start == p) {
+                        b.tvStartLocation.text = name
+                    } else if (target == PointTarget.END && end == p) {
+                        b.tvEndLocation.text = name
+                    }
+                }
+            }
+        }
+
+        if (start != null && end != null) {
+            fetchRoute()
+        } else {
+            map?.easeCamera(CameraUpdateFactory.newLatLngZoom(LatLng(p.lat, p.lon), 13.0), 600)
+            b.tvInfo.text = if (target == PointTarget.START) {
+                "Start set. Choose destination via top bar or long-press map."
+            } else {
+                "Destination set. Choose start via top bar or long-press map."
+            }
+        }
+        updateButtons(MockLocationService.state.value)
+    }
+
+    private fun clearLocationPoint(target: PointTarget) {
+        if (MockLocationService.state.value == SimState.RUNNING ||
+            MockLocationService.state.value == SimState.PAUSED
+        ) {
+            toast("Stop simulation before clearing locations")
+            return
+        }
+        if (target == PointTarget.START) {
+            start = null
+            b.tvStartLocation.text = "Start: Search, lat/long or map"
+            b.btnClearStart.visibility = View.GONE
+        } else {
+            end = null
+            b.tvEndLocation.text = "Destination: Search, lat/long or map"
+            b.btnClearEnd.visibility = View.GONE
+        }
+        route = null
+        map?.style?.getSourceAs<GeoJsonSource>("route")?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+        refreshPoints()
+        updateButtons(MockLocationService.state.value)
+        b.tvInfo.text = "Choose points by search, lat/long or long-press on map."
+    }
+
+    private fun swapPoints() {
+        if (MockLocationService.state.value == SimState.RUNNING ||
+            MockLocationService.state.value == SimState.PAUSED
+        ) {
+            toast("Stop simulation before swapping points")
+            return
+        }
+        val tempStart = start
+        val tempStartText = b.tvStartLocation.text
+        val tempStartClear = b.btnClearStart.visibility
+
+        start = end
+        b.tvStartLocation.text = if (end != null) b.tvEndLocation.text else "Start: Search, lat/long or map"
+        b.btnClearStart.visibility = b.btnClearEnd.visibility
+
+        end = tempStart
+        b.tvEndLocation.text = if (tempStart != null) tempStartText else "Destination: Search, lat/long or map"
+        b.btnClearEnd.visibility = tempStartClear
+
+        refreshPoints()
+        if (start != null && end != null) {
+            fetchRoute()
+        } else {
+            route = null
+            map?.style?.getSourceAs<GeoJsonSource>("route")?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+            updateButtons(MockLocationService.state.value)
         }
     }
 
@@ -132,16 +444,21 @@ class MainActivity : AppCompatActivity() {
             MockLocationService.state.value != SimState.FINISHED
         ) return
         val p = P(ll.latitude, ll.longitude)
-        if (start == null || end != null) {
-            start = p; end = null; route = null
-            map?.style?.getSourceAs<GeoJsonSource>("route")?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
-            b.tvInfo.text = "Start set. Long-press again to set the destination."
-        } else {
-            end = p
+
+        val target = pendingMapTarget
+        if (target != null) {
+            pendingMapTarget = null
+            applyLocationPoint(target, p)
+            return
         }
-        refreshPoints()
-        updateButtons(MockLocationService.state.value)
-        if (start != null && end != null) fetchRoute()
+
+        if (start == null || end != null) {
+            clearLocationPoint(PointTarget.END)
+            applyLocationPoint(PointTarget.START, p)
+            b.tvInfo.text = "Start set. Long-press again or search for destination."
+        } else {
+            applyLocationPoint(PointTarget.END, p)
+        }
     }
 
     private fun refreshPoints() {
@@ -181,6 +498,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateInfo() {
+        val s = MockLocationService.state.value
+        val pos = MockLocationService.position.value
+        if (s == SimState.PAUSED && pos != null) {
+            val pct = (MockLocationService.progress.value * 100).toInt()
+            val coordStr = "%.5f, %.5f".format(pos.lat, pos.lon)
+            b.tvInfo.text = "Paused at: $coordStr ($pct% completed)"
+            lifecycleScope.launch {
+                val name = withContext(Dispatchers.IO) { GeocodingRepository.reverse(pos.lat, pos.lon) }
+                if (name != null && MockLocationService.state.value == SimState.PAUSED) {
+                    b.tvInfo.text = "Paused at: $name · $coordStr ($pct%)"
+                }
+            }
+            return
+        }
+
         val r = route ?: return
         val km = r.distanceM / 1000
         val mins = (r.distanceM / (b.sliderSpeed.value / 3.6) / 60).toInt()
@@ -189,7 +521,15 @@ class MainActivity : AppCompatActivity() {
 
     // ---- simulation control ----
     private fun updateButtons(s: SimState) {
-        b.btnPlay.text = when (s) { SimState.RUNNING -> "Pause"; SimState.PAUSED -> "Resume"; else -> "Start" }
+        b.btnPlay.text = when (s) {
+            SimState.RUNNING -> "Pause"
+            SimState.PAUSED -> "Resume"
+            else -> "Start"
+        }
+        b.btnStop.text = when (s) {
+            SimState.PAUSED -> "Reset"
+            else -> "Stop"
+        }
         b.btnPlay.isEnabled = route != null || s == SimState.RUNNING || s == SimState.PAUSED
         b.btnStop.isEnabled = s == SimState.RUNNING || s == SimState.PAUSED
     }
@@ -245,4 +585,25 @@ class MainActivity : AppCompatActivity() {
         // OSM raster tiles for development. For production, use a self-hosted or commercial vector tile source.
         private const val STYLE_JSON = """{"version":8,"sources":{"osm":{"type":"raster","tiles":["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],"tileSize":256,"attribution":"© OpenStreetMap contributors","maxzoom":19}},"layers":[{"id":"osm","type":"raster","source":"osm"}]}"""
     }
+}
+
+class SearchResultAdapter(
+    private val items: List<SearchResult>,
+    private val onClick: (SearchResult) -> Unit
+) : RecyclerView.Adapter<SearchResultAdapter.VH>() {
+    class VH(val b: ItemSearchResultBinding) : RecyclerView.ViewHolder(b.root)
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val b = ItemSearchResultBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return VH(b)
+    }
+
+    override fun onBindViewHolder(holder: VH, position: Int) {
+        val item = items[position]
+        holder.b.tvName.text = item.name
+        holder.b.tvDetails.text = item.details
+        holder.b.root.setOnClickListener { onClick(item) }
+    }
+
+    override fun getItemCount(): Int = items.size
 }

@@ -50,9 +50,31 @@ class MockLocationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> begin()
-            ACTION_PAUSE -> if (state.value == SimState.RUNNING) state.value = SimState.PAUSED
-            ACTION_RESUME -> if (state.value == SimState.PAUSED) state.value = SimState.RUNNING
-            ACTION_STOP -> shutdown(SimState.IDLE)
+            ACTION_PAUSE -> {
+                if (state.value == SimState.RUNNING) {
+                    state.value = SimState.PAUSED
+                    updateNotification("Paused at current location")
+                }
+            }
+            ACTION_RESUME -> {
+                if (state.value == SimState.PAUSED) {
+                    state.value = SimState.RUNNING
+                    updateNotification("Simulating route...")
+                }
+            }
+            ACTION_STOP -> {
+                // When stopped while running, stop on pause (hold current location, do not wipe out)
+                if (state.value == SimState.RUNNING) {
+                    state.value = SimState.PAUSED
+                    updateNotification("Stopped at current location")
+                } else if (state.value == SimState.PAUSED) {
+                    // Tapping stop while already paused resets to start
+                    resetToStart()
+                } else {
+                    shutdown(SimState.IDLE, keepPosition = false)
+                }
+            }
+            ACTION_RESET -> resetToStart()
             else -> stopSelf()
         }
         return START_NOT_STICKY
@@ -63,11 +85,13 @@ class MockLocationService : Service() {
         val pts = route
         if (pts.size < 2) {
             error.tryEmit("No route loaded")
-            shutdown(SimState.IDLE); return
+            shutdown(SimState.IDLE, keepPosition = false)
+            return
         }
         if (!setupProviders()) {
             error.tryEmit("mock_not_selected")
-            shutdown(SimState.IDLE); return
+            shutdown(SimState.IDLE, keepPosition = false)
+            return
         }
         job?.cancel()
         job = scope.launch { simulate(pts) }
@@ -77,22 +101,33 @@ class MockLocationService : Service() {
         val cum = DoubleArray(pts.size)
         for (i in 1 until pts.size) cum[i] = cum[i - 1] + haversine(pts[i - 1], pts[i])
         val total = cum.last()
-        var dist = 0.0
+
+        // Resume from current progress if paused, or start from 0
+        var dist = (progress.value.toDouble() * total).coerceIn(0.0, total)
         var i = 0
-        var lastBearing = bearing(pts[0], pts[1])
+        while (i < pts.size - 2 && cum[i + 1] < dist) i++
+        var lastBearing = if (pts.size > 1) bearing(pts[i], pts[i + 1]) else 0f
+        var cur = position.value ?: pts[0]
+
         state.value = SimState.RUNNING
-        progress.value = 0f
-        push(pts[0], lastBearing, 0f)
+        push(cur, lastBearing, 0f)
 
         while (true) {
             delay(1000)
-            if (state.value != SimState.RUNNING) continue
+            if (state.value == SimState.PAUSED) {
+                // When paused or stopped on pause, keep holding the last location with speed = 0
+                push(cur, lastBearing, 0f)
+                continue
+            }
+            if (state.value != SimState.RUNNING) break
+
             val mps = speedKmh / 3.6
             dist += mps
             if (dist >= total) {
-                push(pts.last(), lastBearing, 0f)
+                cur = pts.last()
+                push(cur, lastBearing, 0f)
                 progress.value = 1f
-                shutdown(SimState.FINISHED)
+                shutdown(SimState.FINISHED, keepPosition = true)
                 return
             }
             while (i < pts.size - 2 && cum[i + 1] < dist) i++
@@ -100,7 +135,7 @@ class MockLocationService : Service() {
             val b = pts[i + 1]
             val seg = cum[i + 1] - cum[i]
             val t = if (seg > 0) (dist - cum[i]) / seg else 0.0
-            val cur = P(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t)
+            cur = P(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t)
             if (seg > 0.5) lastBearing = bearing(a, b)
             progress.value = (dist / total).toFloat()
             push(cur, lastBearing, mps.toFloat())
@@ -145,10 +180,26 @@ class MockLocationService : Service() {
         position.value = p
     }
 
-    private fun shutdown(final: SimState) {
+    private fun resetToStart() {
+        job?.cancel()
+        val pts = route
+        val startP = if (pts.isNotEmpty()) pts[0] else null
+        progress.value = 0f
+        state.value = SimState.IDLE
+        if (startP != null) {
+            push(startP, 0f, 0f)
+        }
+        removeProviders()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    private fun shutdown(final: SimState, keepPosition: Boolean = true) {
         job?.cancel()
         removeProviders()
-        position.value = null
+        if (!keepPosition) {
+            position.value = null
+        }
         state.value = final
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -158,23 +209,41 @@ class MockLocationService : Service() {
         for (p in providers) try { lm.removeTestProvider(p) } catch (_: Exception) {}
     }
 
-    private fun startForegroundCompat() {
+    private fun buildNotification(contentText: String): Notification {
+        val open = PendingIntent.getActivity(
+            this, 1, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+        )
         val stop = PendingIntent.getService(
             this, 0,
             Intent(this, MockLocationService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE
         )
-        val open = PendingIntent.getActivity(
-            this, 1, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+        val pauseResume = PendingIntent.getService(
+            this, 2,
+            Intent(this, MockLocationService::class.java).setAction(
+                if (state.value == SimState.RUNNING) ACTION_PAUSE else ACTION_RESUME
+            ),
+            PendingIntent.FLAG_IMMUTABLE
         )
-        val n: Notification = NotificationCompat.Builder(this, CHANNEL)
+
+        return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_marg)
             .setContentTitle("Marg is mocking your location")
-            .setContentText("Tap to open, or stop the simulation")
+            .setContentText(contentText)
             .setContentIntent(open)
+            .addAction(0, if (state.value == SimState.RUNNING) "Pause" else "Resume", pauseResume)
             .addAction(0, "Stop", stop)
             .setOngoing(true)
             .build()
+    }
+
+    private fun updateNotification(contentText: String) {
+        val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
+        nm?.notify(NOTIF_ID, buildNotification(contentText))
+    }
+
+    private fun startForegroundCompat() {
+        val n = buildNotification("Tap to open, or control the simulation")
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } else {
@@ -187,7 +256,6 @@ class MockLocationService : Service() {
         removeProviders()
         scope.cancel()
         if (state.value == SimState.RUNNING || state.value == SimState.PAUSED) state.value = SimState.IDLE
-        position.value = null
         super.onDestroy()
     }
 
@@ -214,6 +282,7 @@ class MockLocationService : Service() {
         const val ACTION_PAUSE = "com.rahulbaberwal.marg.PAUSE"
         const val ACTION_RESUME = "com.rahulbaberwal.marg.RESUME"
         const val ACTION_STOP = "com.rahulbaberwal.marg.STOP"
+        const val ACTION_RESET = "com.rahulbaberwal.marg.RESET"
         private const val CHANNEL = "marg_mock"
         private const val NOTIF_ID = 1
 

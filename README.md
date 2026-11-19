@@ -6,11 +6,11 @@ Package: `com.rahulbaberwal.marg`
 1. Open this folder in Android Studio (Koala or newer, JDK 17). Let Gradle sync.
 2. Run on a real device or emulator (Android 8.0+).
 3. On the device: Settings > Developer options > **Select mock location app** > Marg.
-4. In Marg: long-press map for Start, long-press again for End, pick Walk / Cycle / Drive, press Start.
+4. In Marg: set Start and End (via search, coordinates, or map), pick Walk / Cycle / Drive / Train, press Start.
 5. Open Google Maps or the app under test and watch the moving location.
 
 ## Data sources
-- Routes: OSRM demo servers hosted by OpenStreetMap Germany (foot, bike, car profiles). Fair-use only.
+- Routes: OSRM demo servers (foot, bike, car profiles) and OpenRailRouting (train track profiles). Fair-use only.
 - Tiles: tile.openstreetmap.org (dev use only).
 - For production, self-host OSRM/Valhalla with an India OSM extract and use your own tile source.
 

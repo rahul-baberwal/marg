@@ -9,7 +9,148 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- Top card for setting Start & Destination locations -->
     <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardLocations"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="40dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="6dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <!-- Start Location Row -->
+                <LinearLayout
+                    android:id="@+id/rowStart"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingVertical="6dp"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="2dp">
+
+                    <View
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:layout_marginEnd="10dp"
+                        android:background="@drawable/dot_start" />
+
+                    <TextView
+                        android:id="@+id/tvStartLocation"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="Start: Search, lat/long or map"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                    <ImageView
+                        android:id="@+id/btnSearchStart"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Search start"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_search" />
+
+                    <ImageView
+                        android:id="@+id/btnClearStart"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Clear start"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_close"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="2dp"
+                    android:background="?attr/colorOutlineVariant" />
+
+                <!-- End Location Row -->
+                <LinearLayout
+                    android:id="@+id/rowEnd"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingVertical="6dp"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="2dp">
+
+                    <View
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:layout_marginEnd="10dp"
+                        android:background="@drawable/dot_end" />
+
+                    <TextView
+                        android:id="@+id/tvEndLocation"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="Destination: Search, lat/long or map"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                    <ImageView
+                        android:id="@+id/btnSearchEnd"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Search destination"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_search" />
+
+                    <ImageView
+                        android:id="@+id/btnClearEnd"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Clear destination"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_close"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Swap button -->
+            <ImageView
+                android:id="@+id/btnSwapPoints"
+                android:layout_width="40dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Swap start and destination"
+                android:padding="8dp"
+                android:src="@drawable/ic_swap_vert" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Bottom Controls Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardControls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
@@ -27,7 +168,7 @@
                 android:id="@+id/tvInfo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Long-press the map to set Start, then long-press again for End."
+                android:text="Choose points by search, lat/long or long-press on map."
                 android:textAppearance="?attr/textAppearanceBodyMedium" />
 
             <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -52,6 +193,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:paddingHorizontal="2dp"
                     android:text="Walk" />
 
                 <Button
@@ -60,6 +202,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:paddingHorizontal="2dp"
                     android:text="Cycle" />
 
                 <Button
@@ -68,7 +211,17 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:paddingHorizontal="2dp"
                     android:text="Drive" />
+
+                <Button
+                    android:id="@+id/btnTrain"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:paddingHorizontal="2dp"
+                    android:text="Train" />
             </com.google.android.material.button.MaterialButtonToggleGroup>
 
             <TextView
@@ -84,7 +237,7 @@
                 android:layout_height="wrap_content"
                 android:stepSize="1"
                 android:valueFrom="1"
-                android:valueTo="120"
+                android:valueTo="200"
                 android:value="40" />
 
             <com.google.android.material.materialswitch.MaterialSwitch
