@@ -50,7 +50,7 @@ h2{font-size:clamp(1.6rem,3.6vw,2.2rem);margin-bottom:12px}
 .shots{display:flex;gap:20px;overflow-x:auto;padding:4px 2px 18px;scroll-snap-type:x mandatory}
 .shots figure{margin:0;flex:0 0 min(240px,70vw);scroll-snap-align:start}
 .shot{aspect-ratio:9/19.5;border:6px solid var(--teal);border-radius:30px;background:var(--mint);overflow:hidden;position:relative}
-.shot img{width:100%;height:100%;object-fit:cover;display:block}
+.shot img,.shot video{width:100%;height:100%;object-fit:cover;display:block}
 .shot.missing::after{content:"Add screenshot";position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:.95rem}
 figcaption{margin-top:10px;color:var(--muted);font-size:.95rem}
 .note{max-width:62ch;border-left:4px solid var(--saffron);padding:4px 0 4px 18px}
