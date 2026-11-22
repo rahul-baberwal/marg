@@ -43,7 +43,9 @@ class MockLocationService : Service() {
     override fun onCreate() {
         super.onCreate()
         lm = getSystemService(LOCATION_SERVICE) as LocationManager
-        val ch = NotificationChannel(CHANNEL, "Mock location", NotificationManager.IMPORTANCE_LOW)
+        val ch = NotificationChannel(CHANNEL, "Marg Live Route", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "Live route tracking and simulated location progress"
+        }
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
     }
 
@@ -155,6 +157,7 @@ class MockLocationService : Service() {
         push(cur, lastBearing, 0f)
 
         var pausedWanderer: IndoorWanderer? = null
+        var lastNotifTime = 0L
 
         while (true) {
             delay(1000)
@@ -180,6 +183,12 @@ class MockLocationService : Service() {
                 cur = pts.last()
                 push(cur, lastBearing, 0f)
                 progress.value = 1f
+                updateLiveNotification(
+                    contentText = "Arrived at destination!",
+                    currentProgress = 1f,
+                    remainingKm = 0.0,
+                    etaMin = 0
+                )
                 shutdown(SimState.FINISHED, keepPosition = true)
                 return
             }
@@ -190,11 +199,27 @@ class MockLocationService : Service() {
             val t = if (seg > 0) (dist - cum[i]) / seg else 0.0
             cur = P(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t)
             if (seg > 0.5) lastBearing = bearing(a, b)
-            progress.value = (dist / total).toFloat()
+            val prog = (dist / total).toFloat().coerceIn(0f, 1f)
+            progress.value = prog
             push(cur, lastBearing, mps.toFloat())
+
+            // Periodic live notification updates (like Zomato / Uber delivery progress)
+            val now = System.currentTimeMillis()
+            if (now - lastNotifTime >= 2000L) {
+                lastNotifTime = now
+                val remainingKm = (total - dist).coerceAtLeast(0.0) / 1000.0
+                val etaMin = if (speedKmh > 0) ((remainingKm / speedKmh) * 60).toInt() else 0
+                updateLiveNotification(
+                    contentText = "ETA ~$etaMin min (${"%.1f".format(remainingKm)} km remaining)",
+                    currentProgress = prog,
+                    remainingKm = remainingKm,
+                    etaMin = etaMin
+                )
+            }
         }
     }
 
+    @android.annotation.SuppressLint("WrongConstant")
     @Suppress("DEPRECATION")
     private fun setupProviders(): Boolean = try {
         for (p in providers) {
@@ -290,39 +315,119 @@ class MockLocationService : Service() {
         for (p in providers) try { lm.removeTestProvider(p) } catch (_: Exception) {}
     }
 
-    private fun buildNotification(contentText: String): Notification {
+    private fun getModeEmoji(): String = when (modeName.lowercase()) {
+        "walk" -> "🚶"
+        "cycle" -> "🚴"
+        "train" -> "🚆"
+        "fixed" -> "🏠"
+        else -> "🚗"
+    }
+
+    private fun buildNotification(
+        contentText: String,
+        currentProgress: Float = progress.value,
+        remainingKm: Double = lastRemainingKm,
+        etaMin: Int = lastEtaMin
+    ): Notification {
         val open = PendingIntent.getActivity(
-            this, 1, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+            this, 1, Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val stop = PendingIntent.getService(
             this, 0,
             Intent(this, MockLocationService::class.java).setAction(ACTION_STOP),
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val pauseResume = PendingIntent.getService(
             this, 2,
             Intent(this, MockLocationService::class.java).setAction(
                 if (state.value == SimState.RUNNING) ACTION_PAUSE else ACTION_RESUME
             ),
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notifTitle = if (isFixedMode) "Marg: Fixed indoor location active" else "Marg is mocking your location"
+        val emoji = getModeEmoji()
+        val isPaused = state.value == SimState.PAUSED
+        val isFinished = state.value == SimState.FINISHED
+        val progressPercent = (currentProgress * 100).toInt().coerceIn(0, 100)
 
-        return NotificationCompat.Builder(this, CHANNEL)
+        val title = when {
+            isFinished -> "🏁 Arrived at $endLabel"
+            isFixedMode -> "$emoji Fixed Location Active"
+            isPaused -> "⏸️ Paused: On way to $endLabel"
+            else -> "$emoji $modeName to $endLabel"
+        }
+
+        val subText = when {
+            isFinished -> "Completed"
+            isPaused -> "Paused • $progressPercent%"
+            isFixedMode -> "Marg • ~${indoorRadiusM.toInt()}m wander"
+            else -> "Marg • $progressPercent%"
+        }
+
+        val bigText = buildString {
+            if (isFixedMode) {
+                append("📍 Location: $startLabel\n")
+                append("🔄 Indoor radius: ~${indoorRadiusM.toInt()}m drift (jitter ${if (jitter) "on" else "off"})")
+            } else {
+                append("📍 From: $startLabel\n")
+                append("🏁 To: $endLabel\n")
+                val spd = "%.0f".format(speedKmh)
+                if (remainingKm > 0 && etaMin > 0) {
+                    append("⏱️ Speed: $spd km/h • ETA: ~$etaMin min (${"%.1f".format(remainingKm)} km left)")
+                } else if (remainingKm > 0) {
+                    append("⏱️ Speed: $spd km/h • ${"%.1f".format(remainingKm)} km left")
+                } else {
+                    append("⏱️ Speed: $spd km/h • $progressPercent% completed")
+                }
+            }
+        }
+
+        val builder = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_marg)
-            .setContentTitle(notifTitle)
+            .setColor(0xFF0E3B43.toInt())
+            .setContentTitle(title)
             .setContentText(contentText)
+            .setSubText(subText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setContentIntent(open)
-            .addAction(0, if (state.value == SimState.RUNNING) "Pause" else "Resume", pauseResume)
-            .addAction(0, "Stop", stop)
-            .setOngoing(true)
-            .build()
+            .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setOnlyAlertOnce(true)
+            .setOngoing(!isFinished)
+
+        if (!isFixedMode && !isFinished) {
+            builder.setProgress(100, progressPercent, false)
+        }
+
+        if (!isFinished) {
+            builder.addAction(
+                0,
+                if (isPaused) "▶ Resume" else "⏸ Pause",
+                pauseResume
+            )
+            builder.addAction(0, "⏹ Stop", stop)
+        }
+
+        return builder.build()
     }
 
     private fun updateNotification(contentText: String) {
         val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
         nm?.notify(NOTIF_ID, buildNotification(contentText))
+    }
+
+    private fun updateLiveNotification(
+        contentText: String,
+        currentProgress: Float,
+        remainingKm: Double,
+        etaMin: Int
+    ) {
+        lastRemainingKm = remainingKm
+        lastEtaMin = etaMin
+        val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
+        nm?.notify(NOTIF_ID, buildNotification(contentText, currentProgress, remainingKm, etaMin))
     }
 
     private fun startForegroundCompat() {
@@ -366,7 +471,7 @@ class MockLocationService : Service() {
         const val ACTION_RESUME = "com.rahulbaberwal.marg.RESUME"
         const val ACTION_STOP = "com.rahulbaberwal.marg.STOP"
         const val ACTION_RESET = "com.rahulbaberwal.marg.RESET"
-        private const val CHANNEL = "marg_mock"
+        private const val CHANNEL = "marg_live_route_v1"
         private const val NOTIF_ID = 1
 
         val state = MutableStateFlow(SimState.IDLE)
@@ -380,5 +485,11 @@ class MockLocationService : Service() {
         @Volatile var speedKmh: Double = 40.0
         @Volatile var jitter: Boolean = true
         @Volatile var route: List<P> = emptyList()
+
+        @Volatile var startLabel: String = "Start"
+        @Volatile var endLabel: String = "Destination"
+        @Volatile var modeName: String = "Drive"
+        @Volatile var lastRemainingKm: Double = 0.0
+        @Volatile var lastEtaMin: Int = 0
     }
 }

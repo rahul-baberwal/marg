@@ -53,6 +53,4 @@ local.properties
 .DS_Store
 Thumbs.db
 
-# Store listing draft
-app-store-listing.md
 

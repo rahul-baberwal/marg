@@ -13,8 +13,6 @@ data class RouteResult(val points: List<P>, val distanceM: Double, val durationS
  * - WALK: OpenStreetMap foot router (5 km/h)
  * - BIKE: OpenStreetMap bicycle router (15 km/h)
  * - DRIVE: OpenStreetMap car router (40 km/h, default)
- * - WALK: OpenStreetMap foot router (5 km/h)
- * - BIKE: OpenStreetMap bicycle router (15 km/h)
  * - TRAIN: OpenRailRouting railway tracks with fallback to road router (80 km/h)
  * - FIXED: Single stationary spot with indoor walking jitter (0 km/h)
  */
@@ -28,34 +26,42 @@ enum class Mode(val defaultKmh: Int) {
 
 object RouteRepository {
 
-    fun fetch(mode: Mode, s: P, e: P): RouteResult {
+    private const val USER_AGENT = "Marg/1.0.1 (com.rahulbaberwal.marg)"
+
+    fun fetch(mode: Mode, s: P, e: P, waypoints: List<P> = emptyList()): RouteResult {
         if (mode == Mode.FIXED) {
             return RouteResult(listOf(s), 0.0, 0.0)
         }
-        return if (mode == Mode.TRAIN) {
+        return if (mode == Mode.TRAIN && waypoints.isEmpty()) {
             try {
                 fetchTrainRoute(s, e)
             } catch (_: Exception) {
                 // Graceful fallback to road route if points are not near rail tracks
-                fetchRoadRoute(mode, s, e)
+                fetchRoadRoute(mode, s, e, waypoints)
             }
         } else {
-            fetchRoadRoute(mode, s, e)
+            fetchRoadRoute(mode, s, e, waypoints)
         }
     }
 
-    private fun fetchRoadRoute(mode: Mode, s: P, e: P): RouteResult {
+    private fun fetchRoadRoute(mode: Mode, s: P, e: P, waypoints: List<P> = emptyList()): RouteResult {
         val server = when (mode) {
             Mode.WALK -> "routed-foot"
             Mode.BIKE -> "routed-bike"
             else -> "routed-car"
         }
+        val allPoints = buildList {
+            add(s)
+            addAll(waypoints)
+            add(e)
+        }
+        val coordsParam = allPoints.joinToString(";") { "${it.lon},${it.lat}" }
         val url = URL(
             "https://routing.openstreetmap.de/$server/route/v1/driving/" +
-                "${s.lon},${s.lat};${e.lon},${e.lat}?overview=full&geometries=geojson"
+                "$coordsParam?overview=full&geometries=geojson"
         )
         val c = url.openConnection() as HttpURLConnection
-        c.setRequestProperty("User-Agent", "Marg/0.1 (com.rahulbaberwal.marg)")
+        c.setRequestProperty("User-Agent", USER_AGENT)
         c.connectTimeout = 15000
         c.readTimeout = 30000
         try {
@@ -79,7 +85,7 @@ object RouteRepository {
             "https://routing.openrailrouting.org/route?point=${s.lat},${s.lon}&point=${e.lat},${e.lon}&profile=all_tracks&points_encoded=false"
         )
         val c = url.openConnection() as HttpURLConnection
-        c.setRequestProperty("User-Agent", "Marg/0.1 (com.rahulbaberwal.marg)")
+        c.setRequestProperty("User-Agent", USER_AGENT)
         c.connectTimeout = 15000
         c.readTimeout = 30000
         try {
