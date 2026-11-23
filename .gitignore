@@ -53,4 +53,11 @@ local.properties
 .DS_Store
 Thumbs.db
 
+# Agent skills, tooling and screenshot editor
+.agents/
+skills-lock.json
+screenshot-editor/
+generate_store_assets.js
+
+
 

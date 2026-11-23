@@ -47,7 +47,9 @@ import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -101,6 +103,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlin.math.roundToInt
+import com.rahulbaberwal.marg.DeveloperSettingsHelper
 import com.rahulbaberwal.marg.MapLayer
 import com.rahulbaberwal.marg.MargUiState
 import com.rahulbaberwal.marg.MargViewModel
@@ -162,7 +165,29 @@ fun MapScreen(
     var showSearchOverlay by rememberSaveable { mutableStateOf(false) }
     var searchTarget by rememberSaveable { mutableStateOf("start") }
     var showLayerPicker by rememberSaveable { mutableStateOf(false) }
+    var showFeatureGuide by rememberSaveable { mutableStateOf(false) }
     var mapBearing by rememberSaveable { mutableStateOf(0f) }
+
+    val hasSeenGuide by vm.hasSeenFeatureGuide.collectAsState()
+    LaunchedEffect(hasSeenGuide) {
+        if (hasSeenGuide == false) {
+            showFeatureGuide = true
+        }
+    }
+
+    // Auto-recheck mock location status when user returns to app from Developer Settings
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                vm.recheckMockLocation()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     val mapViewRef = remember { mutableStateOf<MapView?>(null) }
     val mapRef = remember { mutableStateOf<MapLibreMap?>(null) }
@@ -173,7 +198,31 @@ fun MapScreen(
     ) { result ->
         val fineLocationGranted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
         if (fineLocationGranted) {
-            vm.startSim()
+            // Check mock location app selection
+            val isMockApp = DeveloperSettingsHelper.isMockLocationAppSelected(context)
+            if (!isMockApp) {
+                val devModeOn = DeveloperSettingsHelper.isDeveloperOptionsEnabled(context)
+                if (devModeOn) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "Marg is not set as Mock Location app. Opening Developer options...",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
+                    DeveloperSettingsHelper.openMockLocationSettings(context)
+                } else {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "Developer options disabled. Tap Build number 7 times in About Phone.",
+                            duration = SnackbarDuration.Long
+                        )
+                    }
+                    DeveloperSettingsHelper.openAboutPhoneSettings(context)
+                }
+                vm.markMockLocationNotSet()
+            } else {
+                vm.startSim()
+            }
         } else {
             scope.launch {
                 snackbarHostState.showSnackbar(
@@ -199,9 +248,35 @@ fun MapScreen(
 
         if (missing.isNotEmpty()) {
             permissionLauncher.launch(missing.toTypedArray())
-        } else {
-            vm.startSim()
+            return
         }
+
+        // Check Mock Location selection before starting simulation
+        val isMockApp = DeveloperSettingsHelper.isMockLocationAppSelected(context)
+        if (!isMockApp) {
+            val devModeOn = DeveloperSettingsHelper.isDeveloperOptionsEnabled(context)
+            if (devModeOn) {
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Marg is not set as Mock Location app. Opening Developer options...",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+                DeveloperSettingsHelper.openMockLocationSettings(context)
+            } else {
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Developer options disabled. Tap Build number 7 times in About Phone.",
+                        duration = SnackbarDuration.Long
+                    )
+                }
+                DeveloperSettingsHelper.openAboutPhoneSettings(context)
+            }
+            vm.markMockLocationNotSet()
+            return
+        }
+
+        vm.startSim()
     }
 
     // Error messages surfaced as single clean Snackbar
@@ -313,9 +388,15 @@ fun MapScreen(
                     }
                 },
                 onOpenMockLocationSettings = {
-                    try {
-                        context.startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
-                    } catch (_: Exception) {}
+                    val opened = DeveloperSettingsHelper.openMockLocationSettings(context)
+                    if (!opened) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = "Unable to open Developer options",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    }
                     vm.recheckMockLocation()
                 },
                 onDismissMockLocationCard = { vm.dismissMockLocationCard() },
@@ -518,6 +599,10 @@ fun MapScreen(
                 onRemoveWaypoint = { idx ->
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     vm.removeWaypoint(idx)
+                },
+                onMoveWaypoint = { from, to ->
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    vm.moveWaypoint(from, to)
                 },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -741,23 +826,46 @@ fun MapScreen(
                     }
                 }
 
-                // 4. Info / Developer / About Button (Always available)
+                // 4. Quick Guide & Hints Button (Always available)
                 FilledTonalIconButton(
-                    onClick = onOpenAbout,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showFeatureGuide = true
+                    },
                     modifier = Modifier
                         .size(44.dp)
                         .shadow(4.dp, CircleShape)
-                        .semantics { contentDescription = "About Marg and developer info" },
+                        .semantics { contentDescription = "Quick guide and feature hints" },
                     shape = CircleShape,
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Info,
+                        imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(19.dp)
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // 5. Settings & About Button (Always available)
+                FilledTonalIconButton(
+                    onClick = onOpenAbout,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .shadow(4.dp, CircleShape)
+                        .semantics { contentDescription = "Settings and about info" },
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -810,12 +918,12 @@ fun MapScreen(
                     searchTarget == "destination" -> vm.setEnd(p, res.name)
                     searchTarget.startsWith("add_stop") -> {
                         val insertIdx = searchTarget.removePrefix("add_stop_").toIntOrNull() ?: -1
-                        vm.addWaypoint(p, insertIdx)
+                        vm.addWaypoint(p, insertIdx, res.name)
                     }
                     searchTarget.startsWith("edit_stop_") -> {
                         val idx = searchTarget.removePrefix("edit_stop_").toIntOrNull()
                         if (idx != null) {
-                            vm.updateWaypoint(idx, p)
+                            vm.updateWaypoint(idx, p, res.name)
                         }
                     }
                 }
@@ -842,6 +950,18 @@ fun MapScreen(
                 showLayerPicker = false
             },
             onDismiss = { showLayerPicker = false }
+        )
+    }
+
+    // Quick Feature Guide & Hints Bottom Sheet
+    if (showFeatureGuide) {
+        FeatureGuideSheet(
+            onDismiss = { dontShowAgain ->
+                showFeatureGuide = false
+                if (dontShowAgain) {
+                    vm.setFeatureGuideDontShowAgain()
+                }
+            }
         )
     }
 }

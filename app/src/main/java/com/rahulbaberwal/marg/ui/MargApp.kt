@@ -22,27 +22,28 @@ fun MargApp(
     modifier: Modifier = Modifier,
     vm: MargViewModel = viewModel()
 ) {
-    var showAbout by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
 
-    BackHandler(enabled = showAbout) {
-        showAbout = false
+    BackHandler(enabled = showSettings) {
+        showSettings = false
     }
 
     Box(modifier = modifier.fillMaxSize()) {
         // MapScreen is preserved in composition so MapView, route, and pins never unload
         MapScreen(
             vm = vm,
-            onOpenAbout = { showAbout = true }
+            onOpenAbout = { showSettings = true }
         )
 
-        // AboutScreen overlays smoothly when opened and slides back on dismiss
+        // SettingsScreen overlays smoothly when opened and slides back on dismiss
         AnimatedVisibility(
-            visible = showAbout,
+            visible = showSettings,
             enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
             exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
         ) {
-            AboutScreen(
-                onBack = { showAbout = false }
+            SettingsScreen(
+                vm = vm,
+                onBack = { showSettings = false }
             )
         }
     }

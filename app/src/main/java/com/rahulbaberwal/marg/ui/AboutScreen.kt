@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Email
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,6 +52,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,6 +92,7 @@ fun AboutScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var showFeatureGuide by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -202,6 +209,21 @@ fun AboutScreen(
                             Spacer(Modifier.width(6.dp))
                             Text("Repository", style = MaterialTheme.typography.labelSmall)
                         }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    FilledTonalButton(
+                        onClick = { showFeatureGuide = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .semantics { contentDescription = "Open quick guide and feature hints" },
+                        shape = RoundedCornerShape(22.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Quick Guide & Feature Hints", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -407,6 +429,12 @@ fun AboutScreen(
             }
 
             Spacer(Modifier.height(16.dp))
+        }
+
+        if (showFeatureGuide) {
+            FeatureGuideSheet(
+                onDismiss = { showFeatureGuide = false }
+            )
         }
     }
 }

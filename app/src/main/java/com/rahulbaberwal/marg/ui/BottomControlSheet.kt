@@ -155,7 +155,7 @@ fun BottomControlSheet(
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Text(
-                            text = "Developer options > Select mock location app > Choose Marg",
+                            text = "Developer options > Select mock location app > Choose Marg. Tap below to jump straight to the option.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
                         )

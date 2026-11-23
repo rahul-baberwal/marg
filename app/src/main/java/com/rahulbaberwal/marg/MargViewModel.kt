@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -16,6 +17,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.stateIn
@@ -31,6 +33,12 @@ enum class MapLayer(val displayName: String, val attribution: String) {
     SATELLITE("Satellite", "Tiles © Esri — Source: Esri, Maxar, Earthstar")
 }
 
+enum class AppThemeMode(val title: String) {
+    SYSTEM("System (Auto)"),
+    LIGHT("Light"),
+    DARK("Dark")
+}
+
 data class MargUiState(
     val simState: SimState = SimState.IDLE,
     val position: P? = null,
@@ -43,6 +51,7 @@ data class MargUiState(
     val startPoint: P? = null,
     val endPoint: P? = null,
     val waypoints: List<P> = emptyList(),
+    val waypointLabels: List<String> = emptyList(),
     val startLabel: String = "",
     val endLabel: String = "",
     val selectedLayer: MapLayer = MapLayer.STANDARD,
@@ -66,6 +75,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     private val _startPoint = MutableStateFlow<P?>(null)
     private val _endPoint = MutableStateFlow<P?>(null)
     private val _waypoints = MutableStateFlow<List<P>>(emptyList())
+    private val _waypointLabels = MutableStateFlow<List<String>>(emptyList())
     private val _startLabel = MutableStateFlow("")
     private val _endLabel = MutableStateFlow("")
     private val _selectedLayer = MutableStateFlow(MapLayer.STANDARD)
@@ -78,12 +88,18 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     private val _activePinChip = MutableStateFlow<String?>(null)
     private val _route = MutableStateFlow<RouteResult?>(null)
     private val _searchQuery = MutableStateFlow("")
+    private val _hasSeenFeatureGuide = MutableStateFlow<Boolean?>(null)
+    val hasSeenFeatureGuide: StateFlow<Boolean?> = _hasSeenFeatureGuide.asStateFlow()
+    private val _themeMode = MutableStateFlow(AppThemeMode.SYSTEM)
+    val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
     private val KEY_LAYER = intPreferencesKey("map_layer")
     private val KEY_SPEED = floatPreferencesKey("speed_kmh")
     private val KEY_INDOOR_RADIUS = floatPreferencesKey("indoor_radius")
     private val KEY_JITTER = intPreferencesKey("jitter")
     private val KEY_MODE = stringPreferencesKey("mode")
+    private val KEY_HAS_SEEN_GUIDE = booleanPreferencesKey("has_seen_feature_guide")
+    private val KEY_THEME_MODE = stringPreferencesKey("app_theme_mode")
 
     // Combined UI State
     val uiState: StateFlow<MargUiState> = combine(
@@ -106,6 +122,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
      .combine(_startPoint) { s, sp -> s.copy(startPoint = sp) }
      .combine(_endPoint) { s, ep -> s.copy(endPoint = ep) }
      .combine(_waypoints) { s, wp -> s.copy(waypoints = wp) }
+     .combine(_waypointLabels) { s, wl -> s.copy(waypointLabels = wl) }
      .combine(_startLabel) { s, sl -> s.copy(startLabel = sl) }
      .combine(_endLabel) { s, el -> s.copy(endLabel = el) }
      .combine(_selectedLayer) { s, l -> s.copy(selectedLayer = l) }
@@ -137,6 +154,10 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
         // Restore persisted preferences
         viewModelScope.launch {
             ctx.dataStore.data.collect { prefs ->
+                _hasSeenFeatureGuide.value = prefs[KEY_HAS_SEEN_GUIDE] ?: false
+                prefs[KEY_THEME_MODE]?.let { tm ->
+                    AppThemeMode.entries.find { it.name == tm }?.let { _themeMode.value = it }
+                }
                 prefs[KEY_LAYER]?.let { l ->
                     _selectedLayer.value = MapLayer.entries.getOrNull(l) ?: MapLayer.STANDARD
                 }
@@ -225,35 +246,81 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun addWaypoint(p: P, index: Int = -1) {
-        val current = _waypoints.value.toMutableList()
-        if (index in 0..current.size) {
-            current.add(index, p)
-        } else {
-            current.add(p)
+    fun addWaypoint(p: P, index: Int = -1, initialLabel: String = "") {
+        val currentPoints = _waypoints.value.toMutableList()
+        val currentLabels = _waypointLabels.value.toMutableList()
+        while (currentLabels.size < currentPoints.size) currentLabels.add("")
+        val insertIdx = if (index in 0..currentPoints.size) index else currentPoints.size
+        currentPoints.add(insertIdx, p)
+        currentLabels.add(insertIdx, initialLabel)
+        _waypoints.value = currentPoints
+        _waypointLabels.value = currentLabels
+
+        if (initialLabel.isEmpty()) {
+            resolveReverseGeocode(p) { name ->
+                val updated = _waypointLabels.value.toMutableList()
+                if (insertIdx in updated.indices && _waypoints.value.getOrNull(insertIdx) == p) {
+                    updated[insertIdx] = name
+                    _waypointLabels.value = updated
+                }
+            }
         }
-        _waypoints.value = current
         if (_startPoint.value != null && _endPoint.value != null) {
             fetchRoute()
         }
     }
 
     fun removeWaypoint(index: Int) {
-        val current = _waypoints.value.toMutableList()
-        if (index in current.indices) {
-            current.removeAt(index)
-            _waypoints.value = current
+        val currentPoints = _waypoints.value.toMutableList()
+        val currentLabels = _waypointLabels.value.toMutableList()
+        if (index in currentPoints.indices) {
+            currentPoints.removeAt(index)
+            if (index in currentLabels.indices) {
+                currentLabels.removeAt(index)
+            }
+            _waypoints.value = currentPoints
+            _waypointLabels.value = currentLabels
             if (_startPoint.value != null && _endPoint.value != null) {
                 fetchRoute()
             }
         }
     }
 
-    fun updateWaypoint(index: Int, p: P) {
-        val current = _waypoints.value.toMutableList()
-        if (index in current.indices) {
-            current[index] = p
-            _waypoints.value = current
+    fun updateWaypoint(index: Int, p: P, label: String = "") {
+        val currentPoints = _waypoints.value.toMutableList()
+        val currentLabels = _waypointLabels.value.toMutableList()
+        while (currentLabels.size < currentPoints.size) currentLabels.add("")
+        if (index in currentPoints.indices) {
+            currentPoints[index] = p
+            currentLabels[index] = label
+            _waypoints.value = currentPoints
+            _waypointLabels.value = currentLabels
+            if (label.isEmpty()) {
+                resolveReverseGeocode(p) { name ->
+                    val updated = _waypointLabels.value.toMutableList()
+                    if (index in updated.indices && _waypoints.value.getOrNull(index) == p) {
+                        updated[index] = name
+                        _waypointLabels.value = updated
+                    }
+                }
+            }
+            if (_startPoint.value != null && _endPoint.value != null) {
+                fetchRoute()
+            }
+        }
+    }
+
+    fun moveWaypoint(fromIndex: Int, toIndex: Int) {
+        val currentPoints = _waypoints.value.toMutableList()
+        val currentLabels = _waypointLabels.value.toMutableList()
+        while (currentLabels.size < currentPoints.size) currentLabels.add("")
+        if (fromIndex in currentPoints.indices && toIndex in currentPoints.indices && fromIndex != toIndex) {
+            val p = currentPoints.removeAt(fromIndex)
+            currentPoints.add(toIndex, p)
+            val l = currentLabels.removeAt(fromIndex)
+            currentLabels.add(toIndex, l)
+            _waypoints.value = currentPoints
+            _waypointLabels.value = currentLabels
             if (_startPoint.value != null && _endPoint.value != null) {
                 fetchRoute()
             }
@@ -262,6 +329,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearWaypoints() {
         _waypoints.value = emptyList()
+        _waypointLabels.value = emptyList()
         if (_startPoint.value != null && _endPoint.value != null) {
             fetchRoute()
         }
@@ -289,6 +357,12 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
         _startLabel.value = el
         _endPoint.value = s
         _endLabel.value = sl
+        val currentPoints = _waypoints.value
+        val currentLabels = _waypointLabels.value
+        if (currentPoints.isNotEmpty()) {
+            _waypoints.value = currentPoints.reversed()
+            _waypointLabels.value = currentLabels.reversed()
+        }
         if (s != null && e != null) {
             fetchRoute()
         } else {
@@ -304,6 +378,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
                 _endPoint.value = null
                 _endLabel.value = ""
                 _waypoints.value = emptyList()
+                _waypointLabels.value = emptyList()
                 _route.value = null
                 _startPoint.value?.let { MockLocationService.fixedLocation = it }
             }
@@ -408,12 +483,25 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissError() { _error.value = null }
     fun dismissMockLocationCard() { _isMockLocationNotSet.value = false }
+    fun markMockLocationNotSet() { _isMockLocationNotSet.value = true }
+
+    fun setFeatureGuideDontShowAgain() {
+        viewModelScope.launch {
+            ctx.dataStore.edit { it[KEY_HAS_SEEN_GUIDE] = true }
+            _hasSeenFeatureGuide.value = true
+        }
+    }
+
+    fun setThemeMode(mode: AppThemeMode) {
+        _themeMode.value = mode
+        viewModelScope.launch {
+            ctx.dataStore.edit { it[KEY_THEME_MODE] = mode.name }
+        }
+    }
 
     fun recheckMockLocation() {
-        viewModelScope.launch {
-            kotlinx.coroutines.delay(600)
-            _isMockLocationNotSet.value = false
-        }
+        val isSelected = DeveloperSettingsHelper.isMockLocationAppSelected(ctx)
+        _isMockLocationNotSet.value = !isSelected
     }
 
     private fun sendServiceAction(action: String) {

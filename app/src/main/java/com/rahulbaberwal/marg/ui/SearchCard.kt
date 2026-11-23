@@ -4,8 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,15 +20,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,9 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,12 +66,14 @@ fun SearchCard(
     onClearStart: () -> Unit,
     onClearEnd: () -> Unit,
     onRemoveWaypoint: (Int) -> Unit = {},
+    onMoveWaypoint: (Int, Int) -> Unit = { _, _ -> },
     onAddStopClick: (Int) -> Unit = {},
     onEditStopClick: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // When stops exist, allows collapsing to minimum space; expands on click or when adding stops
     var isExpanded by rememberSaveable { mutableStateOf(false) }
+    var reorderMenuIdx by rememberSaveable { mutableStateOf<Int?>(null) }
 
     val hasRouteOrStops = uiState.waypoints.isNotEmpty() || (uiState.startPoint != null && uiState.endPoint != null)
 
@@ -98,13 +102,19 @@ fun SearchCard(
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Green dot for Start
-                Icon(
-                    imageVector = Icons.Default.FiberManualRecord,
-                    contentDescription = null,
-                    tint = Color(0xFF16A34A),
-                    modifier = Modifier.size(12.dp)
-                )
+                // Green bullseye for Start
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .border(2.dp, Color(0xFF16A34A), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(Color(0xFF16A34A), CircleShape)
+                    )
+                }
 
                 Spacer(Modifier.width(8.dp))
 
@@ -129,7 +139,7 @@ fun SearchCard(
                     imageVector = Icons.Default.LocationOn,
                     contentDescription = null,
                     tint = Color(0xFFDC2626),
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(16.dp)
                 )
 
                 Spacer(Modifier.width(4.dp))
@@ -196,7 +206,7 @@ fun SearchCard(
         } else {
             // ==========================================
             // 2. EXPANDED VIEW / ROUTE PLANNER
-            // Exact layout from user screenshot with inline add stops & collapse
+            // Exact layout with inline add stops, reordering & collapse
             // ==========================================
             Column(
                 modifier = Modifier
@@ -215,7 +225,7 @@ fun SearchCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "Route planner",
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -246,8 +256,8 @@ fun SearchCard(
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowUp,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
+                                tint = Color(0xFF16A34A),
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
@@ -257,25 +267,24 @@ fun SearchCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(46.dp)
+                        .height(48.dp)
                         .clip(RoundedCornerShape(18.dp))
                         .clickable(onClick = onStartClick)
                         .padding(horizontal = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF16A34A).copy(alpha = 0.15f),
-                        modifier = Modifier.size(28.dp)
+                    // Bullseye Icon: Outer ring with centered dot
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .border(2.dp, Color(0xFF16A34A), CircleShape),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.FiberManualRecord,
-                                contentDescription = null,
-                                tint = Color(0xFF16A34A),
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(Color(0xFF16A34A), CircleShape)
+                        )
                     }
 
                     Spacer(Modifier.width(10.dp))
@@ -293,6 +302,7 @@ fun SearchCard(
                         Text(
                             text = uiState.startLabel.ifEmpty { "Search, lat/lon or map pin" },
                             style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
                             color = if (uiState.startLabel.isEmpty()) {
                                 MaterialTheme.colorScheme.outline
                             } else {
@@ -306,7 +316,7 @@ fun SearchCard(
                     if (uiState.startPoint != null) {
                         IconButton(
                             onClick = onClearStart,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -316,6 +326,16 @@ fun SearchCard(
                             )
                         }
                     }
+
+                    // Drag handle visual indicator
+                    Icon(
+                        imageVector = Icons.Default.DragHandle,
+                        contentDescription = "Reorder handle",
+                        tint = MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier
+                            .size(22.dp)
+                            .padding(end = 4.dp)
+                    )
                 }
 
                 // Non-Fixed Mode: Intermediate Stops & Destination
@@ -330,26 +350,29 @@ fun SearchCard(
 
                     // Waypoints list
                     uiState.waypoints.forEachIndexed { idx, wp ->
+                        val stopLabel = uiState.waypointLabels.getOrNull(idx)?.takeIf { it.isNotBlank() }
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(44.dp)
+                                .height(46.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .clickable { onEditStopClick(idx) }
                                 .padding(horizontal = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Circular Teal Number Badge (1, 2, 3...)
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                                modifier = Modifier.size(28.dp)
+                                shape = CircleShape,
+                                color = Color(0xFF0F766E).copy(alpha = 0.2f),
+                                modifier = Modifier.size(24.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
                                         text = "${idx + 1}",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = Color(0xFF0F766E)
                                     )
                                 }
                             }
@@ -361,28 +384,100 @@ fun SearchCard(
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Text(
-                                    text = "STOP ${idx + 1}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "%.4f, %.4f".format(wp.lat, wp.lon),
+                                    text = stopLabel ?: "%.4f, %.4f".format(wp.lat, wp.lon),
                                     style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                if (stopLabel != null) {
+                                    Text(
+                                        text = "STOP ${idx + 1} · %.4f, %.4f".format(wp.lat, wp.lon),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.outline,
+                                        maxLines = 1
+                                    )
+                                }
                             }
 
+                            // Reorder Drag Handle with Dropdown Menu for Move Up / Down
+                            Box {
+                                IconButton(
+                                    onClick = { reorderMenuIdx = idx },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DragHandle,
+                                        contentDescription = "Reorder stop ${idx + 1}",
+                                        tint = MaterialTheme.colorScheme.outline,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = (reorderMenuIdx == idx),
+                                    onDismissRequest = { reorderMenuIdx = null }
+                                ) {
+                                    if (idx > 0) {
+                                        DropdownMenuItem(
+                                            text = { Text("Move up") },
+                                            leadingIcon = {
+                                                Icon(
+                                                    Icons.Default.ArrowUpward,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            },
+                                            onClick = {
+                                                onMoveWaypoint(idx, idx - 1)
+                                                reorderMenuIdx = null
+                                            }
+                                        )
+                                    }
+                                    if (idx < uiState.waypoints.size - 1) {
+                                        DropdownMenuItem(
+                                            text = { Text("Move down") },
+                                            leadingIcon = {
+                                                Icon(
+                                                    Icons.Default.ArrowDownward,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            },
+                                            onClick = {
+                                                onMoveWaypoint(idx, idx + 1)
+                                                reorderMenuIdx = null
+                                            }
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text("Remove stop", color = MaterialTheme.colorScheme.error) },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        },
+                                        onClick = {
+                                            onRemoveWaypoint(idx)
+                                            reorderMenuIdx = null
+                                        }
+                                    )
+                                }
+                            }
+
+                            // Delete button (x)
                             IconButton(
                                 onClick = { onRemoveWaypoint(idx) },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Remove stop ${idx + 1}",
-                                    tint = MaterialTheme.colorScheme.error,
+                                    tint = MaterialTheme.colorScheme.outline,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -401,16 +496,16 @@ fun SearchCard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp)
+                            .height(48.dp)
                             .clip(RoundedCornerShape(18.dp))
                             .clickable(onClick = onEndClick)
                             .padding(horizontal = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = CircleShape,
                             color = Color(0xFFDC2626).copy(alpha = 0.15f),
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(24.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
@@ -437,6 +532,7 @@ fun SearchCard(
                             Text(
                                 text = uiState.endLabel.ifEmpty { "Search, lat/lon or map pin" },
                                 style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
                                 color = if (uiState.endLabel.isEmpty()) {
                                     MaterialTheme.colorScheme.outline
                                 } else {
@@ -450,7 +546,7 @@ fun SearchCard(
                         if (uiState.endPoint != null) {
                             IconButton(
                                 onClick = onClearEnd,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
@@ -475,7 +571,7 @@ fun SearchCard(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val distText = uiState.route?.let { "%.1f km · ".format(it.distanceM / 1000.0) } ?: ""
+                            val distText = uiState.route?.let { "%.1f km • ".format(it.distanceM / 1000.0) } ?: ""
                             val stopsText = "${uiState.waypoints.size} ${if (uiState.waypoints.size == 1) "stop" else "stops"}"
                             Text(
                                 text = "$distText$stopsText",
@@ -488,18 +584,11 @@ fun SearchCard(
                                 onClick = { isExpanded = false },
                                 modifier = Modifier.height(34.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(Modifier.width(4.dp))
                                 Text(
-                                    text = "Done",
-                                    style = MaterialTheme.typography.labelSmall,
+                                    text = "Done ✓",
+                                    style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = Color(0xFF16A34A)
                                 )
                             }
                         }
@@ -518,22 +607,18 @@ private fun InlineAddStopButton(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 14.dp, top = 2.dp, bottom = 2.dp),
+            .padding(start = 17.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Vertical connector line
         Box(
-            modifier = Modifier.width(28.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(14.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant)
-            )
-        }
+            modifier = Modifier
+                .width(1.5.dp)
+                .height(14.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        )
 
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(15.dp))
 
         Row(
             modifier = Modifier
@@ -545,14 +630,14 @@ private fun InlineAddStopButton(
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(12.dp)
+                tint = Color(0xFF16A34A),
+                modifier = Modifier.size(13.dp)
             )
             Spacer(Modifier.width(4.dp))
             Text(
                 text = "Add stop",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = Color(0xFF16A34A),
                 fontWeight = FontWeight.Bold
             )
         }

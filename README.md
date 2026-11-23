@@ -1,10 +1,9 @@
 # Marg – Fake GPS & Route Mocker for Android
 
-[![Release](https://img.shields.io/badge/Release-v1.0.1%20(Build%203)-0E3B43?style=for-the-badge)](https://github.com/RahulBaberwal/marg/releases)
+[![Release](https://img.shields.io/badge/Release-v2.0.0%20(Build%204)-0E3B43?style=for-the-badge)](https://github.com/RahulBaberwal/marg/releases)
 [![Android](https://img.shields.io/badge/Android-8.0%2B%20(API%2026%E2%80%9336)-FF9933?style=for-the-badge&logo=android)](https://developer.android.com)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203%20Expressive-4285F4?style=for-the-badge&logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
 [![Indus Appstore](https://img.shields.io/badge/Indus%20Appstore-PhonePe-6739B7?style=for-the-badge)](https://indusapp.store/3y8hrlz0)
-[![Google Play](https://img.shields.io/badge/Google%20Play-Live-34A853?style=for-the-badge&logo=googleplay)](https://play.google.com/store/apps/details?id=com.rahulbaberwal.marg)
 
 **Package:** `com.rahulbaberwal.marg`  
 **Website & Documentation:** [rahul-baberwal.github.io/marg](https://rahul-baberwal.github.io/marg/)
@@ -29,7 +28,7 @@ Anti-cheat engines and presence-tracking platforms easily detect frozen GPS coor
 * **Configurable boundary radius:** Set your indoor wander zone from $0\text{ m}$ (strict stationary coordinate) to $30\text{ m}$ (full house or office).
 * **Rich Android GPS metrics:** Injects authentic horizontal accuracy ($4\text{m}–16\text{m}$), barometric altitude drift, and Android 8.0+ metadata (`bearingAccuracy`, `speedAccuracy`, `verticalAccuracy`).
 
-### 🔔 Live Interactive Route Notification (Zomato / Delivery-Style)
+### 🔔 Live Interactive Route Notification
 * **Pinned Ongoing Route Card:** Registered under high-priority navigation foreground channel (`marg_live_route_v1`), staying at the top of the shade.
 * **Live Progress Bar:** Real-time animated progress bar tracking journey completion percentage.
 * **Live ETA & Distance:** Real-time remaining distance in km, speed in km/h, and remaining ETA in minutes, updated every 2 seconds.
@@ -48,13 +47,13 @@ Anti-cheat engines and presence-tracking platforms easily detect frozen GPS coor
 
 ## 📸 Screenshots
 
-| 1. Map-First UI & Compass | 2. Instant Search & Paste | 3. Debounced Suggestions | 4. Compact Route Pill (~52dp) | 5. Multi-Stop Route Planner |
-|:---:|:---:|:---:|:---:|:---:|
-| <img src="docs/assets/screenshots/01_home_map.png" width="180"/> | <img src="docs/assets/screenshots/02_search_autofocus.png" width="180"/> | <img src="docs/assets/screenshots/03_search_results.png" width="180"/> | <img src="docs/assets/screenshots/04_route_overview.png" width="180"/> | <img src="docs/assets/screenshots/05_route_planner_stops.png" width="180"/> |
+| 1. Simulate GPS Routes | 2. Multi-Stop Planner | 3. 5 Travel Modes & Jitter |
+|:---:|:---:|:---:|
+| <img src="screenshots/01_mock_gps_routes.png" width="280"/> | <img src="screenshots/02_multistop_planner.png" width="280"/> | <img src="screenshots/03_travel_modes_jitter.png" width="280"/> |
 
-| 6. Modes & Speed Control | 7. Live Route Simulation | 8. Zomato Live Notification | 9. In-Notification Pause | 10. Developer Profile Card |
-|:---:|:---:|:---:|:---:|:---:|
-| <img src="docs/assets/screenshots/06_modes_and_speed.png" width="180"/> | <img src="docs/assets/screenshots/07_simulation_running.png" width="180"/> | <img src="docs/assets/screenshots/08_notification_live.png" width="180"/> | <img src="docs/assets/screenshots/09_notification_paused.png" width="180"/> | <img src="docs/assets/screenshots/10_about_screen.png" width="180"/> |
+| 4. Real-Time Notification | 5. Material 3 Theming | 6. Gestures & Compass |
+|:---:|:---:|:---:|
+| <img src="screenshots/04_realtime_notification.png" width="280"/> | <img src="screenshots/05_expressive_themes.png" width="280"/> | <img src="screenshots/06_gestures_and_compass.png" width="280"/> |
 
 ---
 

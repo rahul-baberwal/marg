@@ -74,14 +74,14 @@ Anti-cheat engines, work-tracking apps, and live location trackers easily detect
 
 ---
 
-## What's New in Version 1.0.1 (Build 3)
-• **Material 3 Expressive UI:** Complete Jetpack Compose rewrite with fluid spring motion, translucent surfaces, and calm map-first layout.
-• **Zomato-Style Live Notification:** Real-time route tracking notification with live animated progress bar, live ETA, remaining km distance, and instant in-notification Pause/Resume/Stop actions.
-• **Collapsible Route Planner:** Minimal ~52dp screen space footprint that expands on demand to add, delete, and reorder intermediate stops.
-• **Real-Time Compass:** Interactive compass needle that tracks map bearing and resets to North on tap.
-• **Draggable Markers:** Long-press or drag pins with lift shadows, haptic feedback, and automatic road snapping.
-• **Android 15 & 16 Ready:** Upgraded to compileSdk 36, edge-to-edge support, predictive back gesture, and modern foreground location services.
-• **Verified Developer Profile:** Redesigned About page with official creator links, GitHub, LinkedIn, and Instagram.
+## What's New in Version 2.0.0 (Build 4)
+• **Theme Appearance Switcher:** Switch effortlessly between System (Auto), Light, and Dark modes directly in the app with high-contrast UI tokens.
+• **Interactive In-App Feature Guide:** Step-by-step illustrated hints explaining pin hold-and-drop road snapping, multi-stop routing, compass controls, and travel modes.
+• **Direct Mock Location Deep-Link:** Tapping Start immediately jumps and highlights "Select mock location app" in Android Developer Options.
+• **Real-Time Live Route Tracking Notification:** Track live progress, remaining distance (km), and ETA right from Android's notification shade with instant Pause/Resume/Stop actions.
+• **Unified Settings & About Hub:** One-stop settings page combining theme controls, quick guides, developer profile, privacy policy, and open-source licenses.
+• **Collapsible Multi-Stop Planner:** Slim 52dp screen footprint with dynamic stop addition and one-tap Done collapse.
+• **Android 15 & 16 Ready:** Upgraded to compileSdk 36, edge-to-edge support, and predictive back navigation.
 
 ---
 
