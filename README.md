@@ -49,11 +49,11 @@ Anti-cheat engines and presence-tracking platforms easily detect frozen GPS coor
 
 | 1. Simulate GPS Routes | 2. Multi-Stop Planner | 3. 5 Travel Modes & Jitter |
 |:---:|:---:|:---:|
-| <img src="screenshots/01_mock_gps_routes.png" width="280"/> | <img src="screenshots/02_multistop_planner.png" width="280"/> | <img src="screenshots/03_travel_modes_jitter.png" width="280"/> |
+| <img src="docs/assets/screenshots/01_mock_gps_routes.png" width="280"/> | <img src="docs/assets/screenshots/02_multistop_planner.png" width="280"/> | <img src="docs/assets/screenshots/03_travel_modes_jitter.png" width="280"/> |
 
 | 4. Real-Time Notification | 5. Material 3 Theming | 6. Gestures & Compass |
 |:---:|:---:|:---:|
-| <img src="screenshots/04_realtime_notification.png" width="280"/> | <img src="screenshots/05_expressive_themes.png" width="280"/> | <img src="screenshots/06_gestures_and_compass.png" width="280"/> |
+| <img src="docs/assets/screenshots/04_realtime_notification.png" width="280"/> | <img src="docs/assets/screenshots/05_expressive_themes.png" width="280"/> | <img src="docs/assets/screenshots/06_gestures_and_compass.png" width="280"/> |
 
 ---
 
