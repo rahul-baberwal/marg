@@ -132,6 +132,9 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
 import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
+import org.maplibre.android.style.layers.PropertyFactory.iconKeepUpright
+import org.maplibre.android.style.layers.PropertyFactory.iconPitchAlignment
+import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
@@ -422,7 +425,7 @@ fun MapScreen(
                                 MotionEvent.ACTION_DOWN -> {
                                     downX = event.x
                                     downY = event.y
-                                    activePinId = findPinNearScreenPoint(map, uiState, event.x, event.y, density)
+                                    activePinId = findPinNearScreenPoint(map, vm.uiState.value, event.x, event.y, density)
                                     if (activePinId != null) {
                                         isDraggingPin = false
                                         // Disable scroll gestures instantly so MapLibre's gesture detector does not pan the map
@@ -431,10 +434,54 @@ fun MapScreen(
                                         return@setOnTouchListener true
                                     }
                                 }
+                                MotionEvent.ACTION_POINTER_DOWN -> {
+                                    // A second finger touched down: user is doing a 2-finger gesture (rotate, zoom, pitch)!
+                                    // Instantly cancel any pin drag/selection so the map can rotate/zoom smoothly
+                                    if (activePinId != null) {
+                                        val wasDragging = isDraggingPin
+                                        activePinId = null
+                                        isDraggingPin = false
+                                        map?.uiSettings?.setScrollGesturesEnabled(true)
+                                        v.parent?.requestDisallowInterceptTouchEvent(false)
+                                        if (wasDragging) {
+                                            map?.style?.let { updatePointsOnMap(it, vm.uiState.value) }
+                                        }
+                                    }
+                                    return@setOnTouchListener false
+                                }
+                                MotionEvent.ACTION_POINTER_UP -> {
+                                    // A secondary finger was lifted
+                                    if (activePinId != null) {
+                                        val wasDragging = isDraggingPin
+                                        activePinId = null
+                                        isDraggingPin = false
+                                        map?.uiSettings?.setScrollGesturesEnabled(true)
+                                        v.parent?.requestDisallowInterceptTouchEvent(false)
+                                        if (wasDragging) {
+                                            map?.style?.let { updatePointsOnMap(it, vm.uiState.value) }
+                                        }
+                                    }
+                                    return@setOnTouchListener false
+                                }
                                 MotionEvent.ACTION_MOVE -> {
+                                    // If multi-touch (e.g. 2 fingers rotating or pinching map), NEVER drag pins!
+                                    if (event.pointerCount > 1) {
+                                        if (activePinId != null) {
+                                            val wasDragging = isDraggingPin
+                                            activePinId = null
+                                            isDraggingPin = false
+                                            map?.uiSettings?.setScrollGesturesEnabled(true)
+                                            v.parent?.requestDisallowInterceptTouchEvent(false)
+                                            if (wasDragging) {
+                                                map?.style?.let { updatePointsOnMap(it, vm.uiState.value) }
+                                            }
+                                        }
+                                        return@setOnTouchListener false
+                                    }
+
                                     if (activePinId != null && map != null) {
                                         val movedDist = Math.hypot((event.x - downX).toDouble(), (event.y - downY).toDouble())
-                                        if (!isDraggingPin && movedDist > (8f * density)) {
+                                        if (!isDraggingPin && movedDist > (10f * density)) {
                                             isDraggingPin = true
                                             v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                                         }
@@ -443,16 +490,19 @@ fun MapScreen(
                                             val targetY = event.y - (30f * density)
                                             val latLng = map.projection.fromScreenLocation(PointF(event.x, targetY))
                                             map.style?.let { style ->
-                                                updateSinglePinTemporary(style, activePinId, latLng, uiState)
+                                                updateSinglePinTemporary(style, activePinId, latLng, vm.uiState.value)
                                             }
                                             return@setOnTouchListener true
                                         }
                                     }
                                 }
                                 MotionEvent.ACTION_UP -> {
+                                    map?.uiSettings?.setScrollGesturesEnabled(true)
+                                    v.parent?.requestDisallowInterceptTouchEvent(false)
                                     if (activePinId != null && map != null) {
+                                        val currentUiState = vm.uiState.value
                                         val movedDist = Math.hypot((event.x - downX).toDouble(), (event.y - downY).toDouble())
-                                        if (isDraggingPin || movedDist > (8f * density)) {
+                                        if (isDraggingPin || movedDist > (10f * density)) {
                                             val targetY = event.y - (30f * density)
                                             val latLng = map.projection.fromScreenLocation(PointF(event.x, targetY))
                                             val newPoint = P(latLng.latitude, latLng.longitude)
@@ -470,19 +520,18 @@ fun MapScreen(
                                             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                                             vm.showPinChip(activePinId)
                                         }
-                                        map.uiSettings.setScrollGesturesEnabled(true)
                                         isDraggingPin = false
                                         activePinId = null
                                         return@setOnTouchListener true
                                     }
-                                    map?.uiSettings?.setScrollGesturesEnabled(true)
                                     isDraggingPin = false
                                     activePinId = null
                                 }
                                 MotionEvent.ACTION_CANCEL -> {
                                     map?.uiSettings?.setScrollGesturesEnabled(true)
-                                    if (isDraggingPin && map?.style != null) {
-                                        updatePointsOnMap(map.style, uiState)
+                                    v.parent?.requestDisallowInterceptTouchEvent(false)
+                                    if (map?.style != null) {
+                                        updatePointsOnMap(map.style, vm.uiState.value)
                                     }
                                     isDraggingPin = false
                                     activePinId = null
@@ -497,6 +546,13 @@ fun MapScreen(
                             // Listen for camera rotation changes to animate compass
                             map.addOnCameraMoveListener {
                                 mapBearing = map.cameraPosition.bearing.toFloat()
+                            }
+
+                            // Keep pins and pointers rendered and synchronized when rotation/camera stops
+                            map.addOnCameraIdleListener {
+                                map.style?.let { style ->
+                                    updatePointsOnMap(style, vm.uiState.value)
+                                }
                             }
 
                             // Apply Initial Map Layer
@@ -930,7 +986,7 @@ private fun findPinNearScreenPoint(
     density: Float
 ): String? {
     if (map == null) return null
-    val touchRadius = 45f * density
+    val touchRadius = 28f * density
     var bestPinId: String? = null
     var minDistance = touchRadius.toDouble()
 
@@ -1040,7 +1096,24 @@ private fun updateRouteOnMap(map: MapLibreMap?, style: Style?, route: RouteResul
 
 private fun updatePointsOnMap(style: Style?, uiState: MargUiState) {
     if (style == null) return
-    val pointsSrc = style.getSourceAs<GeoJsonSource>("points-source") ?: return
+    var pointsSrc = style.getSourceAs<GeoJsonSource>("points-source")
+    if (pointsSrc == null) {
+        pointsSrc = GeoJsonSource("points-source")
+        style.addSource(pointsSrc)
+    }
+    if (style.getLayer("points-symbol-layer") == null) {
+        style.addLayer(
+            SymbolLayer("points-symbol-layer", "points-source").withProperties(
+                iconImage(Expression.get("icon")),
+                iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true),
+                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
+                iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_VIEWPORT),
+                iconKeepUpright(true)
+            )
+        )
+    }
     val features = mutableListOf<Feature>()
 
     // Start Pin (Green Google Maps Pin with 'A' or 'H' for fixed)
@@ -1134,7 +1207,10 @@ private fun initMapLayersAndSources(context: Context, style: Style, layer: MapLa
                 iconImage(Expression.get("icon")),
                 iconAnchor(Property.ICON_ANCHOR_BOTTOM),
                 iconAllowOverlap(true),
-                iconIgnorePlacement(true)
+                iconIgnorePlacement(true),
+                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
+                iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_VIEWPORT),
+                iconKeepUpright(true)
             )
         )
     }
