@@ -65,8 +65,8 @@ fun SplashScreen(
             targetValue = 1f,
             animationSpec = tween(durationMillis = 350)
         )
-        // Keep splash screen visible for 1.6s
-        delay(1600)
+        // Keep splash screen visible for ~2.4 seconds (2-3 sec range)
+        delay(2400)
         onTimeout()
     }
 

@@ -35,10 +35,15 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Satellite
+import com.rahulbaberwal.marg.MapLayer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -109,6 +114,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val currentTheme by vm.themeMode.collectAsState()
+    val uiState by vm.uiState.collectAsState()
     var showFeatureGuide by rememberSaveable { mutableStateOf(false) }
 
     val systemDark = isSystemInDarkTheme()
@@ -242,7 +248,112 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 2: Quick Guide & Feature Hints Card
+            // Section 2: Default Map Style Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Layers,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Default Map Style",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Choose your preferred cartography layer",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            MapLayerOptionChip(
+                                layer = MapLayer.STANDARD,
+                                icon = Icons.Default.Map,
+                                label = "Standard",
+                                sub = "OpenStreetMap",
+                                isSelected = (uiState.selectedLayer == MapLayer.STANDARD),
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    vm.setLayer(MapLayer.STANDARD)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            MapLayerOptionChip(
+                                layer = MapLayer.SATELLITE,
+                                icon = Icons.Default.Satellite,
+                                label = "Satellite",
+                                sub = "High-Res Aerial",
+                                isSelected = (uiState.selectedLayer == MapLayer.SATELLITE),
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    vm.setLayer(MapLayer.SATELLITE)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            MapLayerOptionChip(
+                                layer = MapLayer.TERRAIN,
+                                icon = Icons.Default.Landscape,
+                                label = "Terrain",
+                                sub = "Topographic",
+                                isSelected = (uiState.selectedLayer == MapLayer.TERRAIN),
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    vm.setLayer(MapLayer.TERRAIN)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            MapLayerOptionChip(
+                                layer = MapLayer.DARK,
+                                icon = Icons.Default.DarkMode,
+                                label = "Dark",
+                                sub = "OpenFreeMap",
+                                isSelected = (uiState.selectedLayer == MapLayer.DARK),
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    vm.setLayer(MapLayer.DARK)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Section 3: Quick Guide & Feature Hints Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
@@ -668,6 +779,71 @@ private fun ThemeOptionChip(
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium),
                 color = contentColor
             )
+        }
+    }
+}
+
+@Composable
+private fun MapLayerOptionChip(
+    layer: MapLayer,
+    icon: ImageVector,
+    label: String,
+    sub: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        animationSpec = tween(250),
+        label = "layerChipBg"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        animationSpec = tween(250),
+        label = "layerChipFg"
+    )
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = containerColor,
+        border = if (isSelected) {
+            androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+        } else null,
+        modifier = modifier
+            .height(58.dp)
+            .semantics {
+                role = Role.RadioButton
+                contentDescription = "$label map style" + if (isSelected) ", selected" else ""
+            }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Icon(
+                imageVector = if (isSelected) Icons.Default.Check else icon,
+                contentDescription = null,
+                tint = if (isSelected) MaterialTheme.colorScheme.primary else contentColor,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
+                    ),
+                    color = contentColor
+                )
+                Text(
+                    text = sub,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

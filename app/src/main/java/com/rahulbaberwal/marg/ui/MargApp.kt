@@ -10,6 +10,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rahulbaberwal.marg.MargViewModel
 
+@androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
 fun MargApp(
     modifier: Modifier = Modifier,
@@ -25,6 +28,16 @@ fun MargApp(
 ) {
     var showSplashScreen by rememberSaveable { mutableStateOf(true) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showFirstTimeGuide by rememberSaveable { mutableStateOf(false) }
+
+    val hasSeenGuide by vm.hasSeenFeatureGuide.collectAsState()
+
+    // Ensure Quick Guide & Hints NEVER opens before loading completes
+    LaunchedEffect(hasSeenGuide, showSplashScreen) {
+        if (!showSplashScreen && hasSeenGuide == false) {
+            showFirstTimeGuide = true
+        }
+    }
 
     BackHandler(enabled = showSettings) {
         showSettings = false
@@ -36,6 +49,18 @@ fun MargApp(
             vm = vm,
             onOpenAbout = { showSettings = true }
         )
+
+        // First-time Feature Guide Sheet - ONLY displays AFTER splash screen completes loading
+        if (showFirstTimeGuide && !showSplashScreen) {
+            FeatureGuideSheet(
+                onDismiss = { dontShowAgain ->
+                    showFirstTimeGuide = false
+                    if (dontShowAgain) {
+                        vm.setFeatureGuideDontShowAgain()
+                    }
+                }
+            )
+        }
 
         // SettingsScreen overlays smoothly when opened and slides back on dismiss
         AnimatedVisibility(
@@ -49,7 +74,7 @@ fun MargApp(
             )
         }
 
-        // App Splash / Loading screen (1-2 sec) with app logo, name, developer avatar & name
+        // App Splash / Loading screen (2-3 sec) with app logo, name, developer avatar & name
         AnimatedVisibility(
             visible = showSplashScreen,
             enter = fadeIn(),
