@@ -47,7 +47,7 @@ data class MargUiState(
     val progress: Float = 0f,
     val route: RouteResult? = null,
     val mode: Mode = Mode.DRIVE,
-    val speedKmh: Float = 40f,
+    val speedKmh: Float = 60f,
     val indoorRadiusM: Float = 10f,
     val jitter: Boolean = true,
     val startPoint: P? = null,
@@ -71,7 +71,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     private val ctx get() = getApplication<Application>()
 
     private val _mode = MutableStateFlow(Mode.DRIVE)
-    private val _speedKmh = MutableStateFlow(40f)
+    private val _speedKmh = MutableStateFlow(60f)
     private val _indoorRadiusM = MutableStateFlow(10f)
     private val _jitter = MutableStateFlow(true)
     private val _startPoint = MutableStateFlow<P?>(null)
@@ -218,7 +218,13 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
         _isSearching.value = false
     }
 
+    private fun isSimulationActive(): Boolean {
+        val s = MockLocationService.state.value
+        return s == SimState.RUNNING || s == SimState.PAUSED
+    }
+
     fun setStart(p: P, label: String? = null) {
+        if (isSimulationActive()) return
         _startPoint.value = p
         val initialLabel = label ?: "%.5f, %.5f".format(p.lat, p.lon)
         _startLabel.value = initialLabel
@@ -239,6 +245,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setEnd(p: P, label: String? = null) {
+        if (isSimulationActive()) return
         _endPoint.value = p
         val initialLabel = label ?: "%.5f, %.5f".format(p.lat, p.lon)
         _endLabel.value = initialLabel
@@ -256,6 +263,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun addWaypoint(p: P, index: Int = -1, initialLabel: String = "") {
+        if (isSimulationActive()) return
         val currentPoints = _waypoints.value.toMutableList()
         val currentLabels = _waypointLabels.value.toMutableList()
         while (currentLabels.size < currentPoints.size) currentLabels.add("")
@@ -280,6 +288,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun removeWaypoint(index: Int) {
+        if (isSimulationActive()) return
         val currentPoints = _waypoints.value.toMutableList()
         val currentLabels = _waypointLabels.value.toMutableList()
         if (index in currentPoints.indices) {
@@ -296,6 +305,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun updateWaypoint(index: Int, p: P, label: String = "") {
+        if (isSimulationActive()) return
         val currentPoints = _waypoints.value.toMutableList()
         val currentLabels = _waypointLabels.value.toMutableList()
         while (currentLabels.size < currentPoints.size) currentLabels.add("")
@@ -320,6 +330,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun moveWaypoint(fromIndex: Int, toIndex: Int) {
+        if (isSimulationActive()) return
         val currentPoints = _waypoints.value.toMutableList()
         val currentLabels = _waypointLabels.value.toMutableList()
         while (currentLabels.size < currentPoints.size) currentLabels.add("")
@@ -337,6 +348,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearWaypoints() {
+        if (isSimulationActive()) return
         _waypoints.value = emptyList()
         _waypointLabels.value = emptyList()
         if (_startPoint.value != null && _endPoint.value != null) {
@@ -345,6 +357,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearStart() {
+        if (isSimulationActive()) return
         _startPoint.value = null
         _startLabel.value = ""
         _route.value = null
@@ -352,12 +365,14 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearEnd() {
+        if (isSimulationActive()) return
         _endPoint.value = null
         _endLabel.value = ""
         _route.value = null
     }
 
     fun swapPoints() {
+        if (isSimulationActive()) return
         val s = _startPoint.value
         val e = _endPoint.value
         val sl = _startLabel.value
@@ -400,7 +415,12 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
-            ctx.dataStore.edit { it[KEY_MODE] = m.name }
+            ctx.dataStore.edit {
+                it[KEY_MODE] = m.name
+                if (m != Mode.FIXED) {
+                    it[KEY_SPEED] = m.defaultKmh.toFloat()
+                }
+            }
         }
     }
 
@@ -454,6 +474,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun startSim() {
+        _activePinChip.value = null
         val mode = _mode.value
         MockLocationService.startLabel = _startLabel.value.ifEmpty { if (mode == Mode.FIXED) "Fixed Location" else "Start location" }
         MockLocationService.endLabel = _endLabel.value.ifEmpty { "Destination" }

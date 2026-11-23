@@ -430,8 +430,17 @@ fun MapScreen(
                                 MotionEvent.ACTION_DOWN -> {
                                     downX = event.x
                                     downY = event.y
-                                    activePinId = findPinNearScreenPoint(map, vm.uiState.value, event.x, event.y, density)
-                                    if (activePinId != null) {
+                                    val currentSim = vm.uiState.value.simState
+                                    val isSimActiveState = currentSim == SimState.RUNNING || currentSim == SimState.PAUSED
+                                    val touchedPin = findPinNearScreenPoint(map, vm.uiState.value, event.x, event.y, density)
+                                    if (touchedPin != null) {
+                                        if (isSimActiveState) {
+                                            android.widget.Toast.makeText(ctx, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                                            activePinId = null
+                                            isDraggingPin = false
+                                            return@setOnTouchListener true
+                                        }
+                                        activePinId = touchedPin
                                         isDraggingPin = false
                                         // Disable scroll gestures instantly so MapLibre's gesture detector does not pan the map
                                         map?.uiSettings?.setScrollGesturesEnabled(false)
@@ -570,6 +579,11 @@ fun MapScreen(
 
                             // Long Press Map to drop/move pin
                             map.addOnMapLongClickListener { latLng ->
+                                val currentSim = vm.uiState.value.simState
+                                if (currentSim == SimState.RUNNING || currentSim == SimState.PAUSED) {
+                                    android.widget.Toast.makeText(ctx, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                                    return@addOnMapLongClickListener true
+                                }
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val p = P(latLng.latitude, latLng.longitude)
 
@@ -590,6 +604,10 @@ fun MapScreen(
 
                             // Tap Pin to show inline chip options
                             map.addOnMapClickListener { latLng ->
+                                val currentSim = vm.uiState.value.simState
+                                if (currentSim == SimState.RUNNING || currentSim == SimState.PAUSED) {
+                                    return@addOnMapClickListener false
+                                }
                                 val screenPoint = map.projection.toScreenLocation(latLng)
                                 val features = map.queryRenderedFeatures(
                                     PointF(screenPoint.x, screenPoint.y),
@@ -610,44 +628,82 @@ fun MapScreen(
                 }
             )
 
+            val isSimActive = uiState.simState == SimState.RUNNING || uiState.simState == SimState.PAUSED
+
             // Floating Search Card at Top (Map-first layout)
             SearchCard(
                 uiState = uiState,
                 onStartClick = {
-                    searchTarget = "start"
-                    showSearchOverlay = true
+                    if (isSimActive) {
+                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        searchTarget = "start"
+                        showSearchOverlay = true
+                    }
                 },
                 onEndClick = {
-                    searchTarget = "destination"
-                    showSearchOverlay = true
+                    if (isSimActive) {
+                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        searchTarget = "destination"
+                        showSearchOverlay = true
+                    }
                 },
                 onAddStopClick = { insertIdx ->
-                    searchTarget = "add_stop_$insertIdx"
-                    showSearchOverlay = true
+                    if (isSimActive) {
+                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        searchTarget = "add_stop_$insertIdx"
+                        showSearchOverlay = true
+                    }
                 },
                 onEditStopClick = { idx ->
-                    searchTarget = "edit_stop_$idx"
-                    showSearchOverlay = true
+                    if (isSimActive) {
+                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        searchTarget = "edit_stop_$idx"
+                        showSearchOverlay = true
+                    }
                 },
                 onSwapClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    vm.swapPoints()
+                    if (isSimActive) {
+                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        vm.swapPoints()
+                    }
                 },
                 onClearStart = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    vm.clearStart()
+                    if (isSimActive) {
+                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        vm.clearStart()
+                    }
                 },
                 onClearEnd = {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    vm.clearEnd()
+                    if (isSimActive) {
+                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        vm.clearEnd()
+                    }
                 },
                 onRemoveWaypoint = { idx ->
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    vm.removeWaypoint(idx)
+                    if (isSimActive) {
+                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        vm.removeWaypoint(idx)
+                    }
                 },
                 onMoveWaypoint = { from, to ->
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    vm.moveWaypoint(from, to)
+                    if (isSimActive) {
+                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        vm.moveWaypoint(from, to)
+                    }
                 },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -657,7 +713,7 @@ fun MapScreen(
 
             // Inline Pin Action Chip (when a pin is tapped on map)
             AnimatedVisibility(
-                visible = uiState.activePinChip != null,
+                visible = uiState.activePinChip != null && !isSimActive,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.statusBars)

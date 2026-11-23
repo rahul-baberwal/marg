@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.rahulbaberwal.marg.MargUiState
 import com.rahulbaberwal.marg.Mode
+import com.rahulbaberwal.marg.SimState
 
 @Composable
 fun SearchCard(
@@ -76,6 +77,7 @@ fun SearchCard(
     var reorderMenuIdx by rememberSaveable { mutableStateOf<Int?>(null) }
 
     val hasRouteOrStops = uiState.waypoints.isNotEmpty() || (uiState.startPoint != null && uiState.endPoint != null)
+    val isSimActive = uiState.simState == SimState.RUNNING || uiState.simState == SimState.PAUSED
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -174,18 +176,20 @@ fun SearchCard(
                 Spacer(Modifier.weight(1f))
 
                 // Swap Button
-                IconButton(
-                    onClick = onSwapClick,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .semantics { contentDescription = "Swap start and destination" }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SwapVert,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
+                if (!isSimActive) {
+                    IconButton(
+                        onClick = onSwapClick,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .semantics { contentDescription = "Swap start and destination" }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SwapVert,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
                 // Expand Chevron Button
@@ -313,7 +317,7 @@ fun SearchCard(
                         )
                     }
 
-                    if (uiState.startPoint != null) {
+                    if (!isSimActive && uiState.startPoint != null) {
                         IconButton(
                             onClick = onClearStart,
                             modifier = Modifier.size(32.dp)
@@ -326,27 +330,19 @@ fun SearchCard(
                             )
                         }
                     }
-
-                    // Drag handle visual indicator
-                    Icon(
-                        imageVector = Icons.Default.DragHandle,
-                        contentDescription = "Reorder handle",
-                        tint = MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier
-                            .size(22.dp)
-                            .padding(end = 4.dp)
-                    )
                 }
 
                 // Non-Fixed Mode: Intermediate Stops & Destination
                 if (uiState.mode != Mode.FIXED) {
                     // Inline "+ Add stop" (between Start and Stop 1 or Destination)
-                    InlineAddStopButton(
-                        onClick = {
-                            isExpanded = true
-                            onAddStopClick(0)
-                        }
-                    )
+                    if (!isSimActive) {
+                        InlineAddStopButton(
+                            onClick = {
+                                isExpanded = true
+                                onAddStopClick(0)
+                            }
+                        )
+                    }
 
                     // Waypoints list
                     uiState.waypoints.forEachIndexed { idx, wp ->
@@ -401,95 +397,99 @@ fun SearchCard(
                                 }
                             }
 
-                            // Reorder Drag Handle with Dropdown Menu for Move Up / Down
-                            Box {
+                            if (!isSimActive) {
+                                // Reorder Drag Handle with Dropdown Menu for Move Up / Down
+                                Box {
+                                    IconButton(
+                                        onClick = { reorderMenuIdx = idx },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DragHandle,
+                                            contentDescription = "Reorder stop ${idx + 1}",
+                                            tint = MaterialTheme.colorScheme.outline,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = (reorderMenuIdx == idx),
+                                        onDismissRequest = { reorderMenuIdx = null }
+                                    ) {
+                                        if (idx > 0) {
+                                            DropdownMenuItem(
+                                                text = { Text("Move up") },
+                                                leadingIcon = {
+                                                    Icon(
+                                                        Icons.Default.ArrowUpward,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                },
+                                                onClick = {
+                                                    onMoveWaypoint(idx, idx - 1)
+                                                    reorderMenuIdx = null
+                                                }
+                                            )
+                                        }
+                                        if (idx < uiState.waypoints.size - 1) {
+                                            DropdownMenuItem(
+                                                text = { Text("Move down") },
+                                                leadingIcon = {
+                                                    Icon(
+                                                        Icons.Default.ArrowDownward,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                },
+                                                onClick = {
+                                                    onMoveWaypoint(idx, idx + 1)
+                                                    reorderMenuIdx = null
+                                                }
+                                            )
+                                        }
+                                        DropdownMenuItem(
+                                            text = { Text("Remove stop", color = MaterialTheme.colorScheme.error) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    Icons.Default.Close,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            },
+                                            onClick = {
+                                                onRemoveWaypoint(idx)
+                                                reorderMenuIdx = null
+                                            }
+                                        )
+                                    }
+                                }
+
+                                // Delete button (x)
                                 IconButton(
-                                    onClick = { reorderMenuIdx = idx },
+                                    onClick = { onRemoveWaypoint(idx) },
                                     modifier = Modifier.size(32.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.DragHandle,
-                                        contentDescription = "Reorder stop ${idx + 1}",
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove stop ${idx + 1}",
                                         tint = MaterialTheme.colorScheme.outline,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
-
-                                DropdownMenu(
-                                    expanded = (reorderMenuIdx == idx),
-                                    onDismissRequest = { reorderMenuIdx = null }
-                                ) {
-                                    if (idx > 0) {
-                                        DropdownMenuItem(
-                                            text = { Text("Move up") },
-                                            leadingIcon = {
-                                                Icon(
-                                                    Icons.Default.ArrowUpward,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            },
-                                            onClick = {
-                                                onMoveWaypoint(idx, idx - 1)
-                                                reorderMenuIdx = null
-                                            }
-                                        )
-                                    }
-                                    if (idx < uiState.waypoints.size - 1) {
-                                        DropdownMenuItem(
-                                            text = { Text("Move down") },
-                                            leadingIcon = {
-                                                Icon(
-                                                    Icons.Default.ArrowDownward,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            },
-                                            onClick = {
-                                                onMoveWaypoint(idx, idx + 1)
-                                                reorderMenuIdx = null
-                                            }
-                                        )
-                                    }
-                                    DropdownMenuItem(
-                                        text = { Text("Remove stop", color = MaterialTheme.colorScheme.error) },
-                                        leadingIcon = {
-                                            Icon(
-                                                Icons.Default.Close,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.error,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        },
-                                        onClick = {
-                                            onRemoveWaypoint(idx)
-                                            reorderMenuIdx = null
-                                        }
-                                    )
-                                }
-                            }
-
-                            // Delete button (x)
-                            IconButton(
-                                onClick = { onRemoveWaypoint(idx) },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Remove stop ${idx + 1}",
-                                    tint = MaterialTheme.colorScheme.outline,
-                                    modifier = Modifier.size(16.dp)
-                                )
                             }
                         }
 
                         // Inline "+ Add stop" after this stop
-                        InlineAddStopButton(
-                            onClick = {
-                                isExpanded = true
-                                onAddStopClick(idx + 1)
-                            }
-                        )
+                        if (!isSimActive) {
+                            InlineAddStopButton(
+                                onClick = {
+                                    isExpanded = true
+                                    onAddStopClick(idx + 1)
+                                }
+                            )
+                        }
                     }
 
                     // 2. DESTINATION Row
@@ -543,7 +543,7 @@ fun SearchCard(
                             )
                         }
 
-                        if (uiState.endPoint != null) {
+                        if (!isSimActive && uiState.endPoint != null) {
                             IconButton(
                                 onClick = onClearEnd,
                                 modifier = Modifier.size(32.dp)

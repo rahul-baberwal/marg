@@ -492,7 +492,7 @@ class MockLocationService : Service() {
         @Volatile var isFixedMode: Boolean = false
         @Volatile var fixedLocation: P? = null
         @Volatile var indoorRadiusM: Double = 10.0
-        @Volatile var speedKmh: Double = 40.0
+        @Volatile var speedKmh: Double = 60.0
         @Volatile var jitter: Boolean = true
         @Volatile var route: List<P> = emptyList()
 

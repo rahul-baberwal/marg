@@ -12,12 +12,12 @@ data class RouteResult(val points: List<P>, val distanceM: Double, val durationS
  * Routing modes supported by Marg:
  * - WALK: OpenStreetMap foot router (5 km/h)
  * - BIKE: OpenStreetMap bicycle router (15 km/h)
- * - DRIVE: OpenStreetMap car router (40 km/h, default)
+ * - DRIVE: OpenStreetMap car router (60 km/h, default)
  * - TRAIN: OpenRailRouting railway tracks with fallback to road router (80 km/h)
  * - FIXED: Single stationary spot with indoor walking jitter (0 km/h)
  */
 enum class Mode(val defaultKmh: Int) {
-    DRIVE(40),
+    DRIVE(60),
     WALK(5),
     BIKE(15),
     TRAIN(80),
