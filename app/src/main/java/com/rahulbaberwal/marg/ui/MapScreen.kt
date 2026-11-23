@@ -431,11 +431,11 @@ fun MapScreen(
                                     downX = event.x
                                     downY = event.y
                                     val currentSim = vm.uiState.value.simState
-                                    val isSimActiveState = currentSim == SimState.RUNNING || currentSim == SimState.PAUSED
+                                    val isSimActiveState = currentSim == SimState.RUNNING
                                     val touchedPin = findPinNearScreenPoint(map, vm.uiState.value, event.x, event.y, density)
                                     if (touchedPin != null) {
                                         if (isSimActiveState) {
-                                            android.widget.Toast.makeText(ctx, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(ctx, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                                             activePinId = null
                                             isDraggingPin = false
                                             return@setOnTouchListener true
@@ -580,8 +580,8 @@ fun MapScreen(
                             // Long Press Map to drop/move pin
                             map.addOnMapLongClickListener { latLng ->
                                 val currentSim = vm.uiState.value.simState
-                                if (currentSim == SimState.RUNNING || currentSim == SimState.PAUSED) {
-                                    android.widget.Toast.makeText(ctx, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                                if (currentSim == SimState.RUNNING) {
+                                    android.widget.Toast.makeText(ctx, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                                     return@addOnMapLongClickListener true
                                 }
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -605,7 +605,7 @@ fun MapScreen(
                             // Tap Pin to show inline chip options
                             map.addOnMapClickListener { latLng ->
                                 val currentSim = vm.uiState.value.simState
-                                if (currentSim == SimState.RUNNING || currentSim == SimState.PAUSED) {
+                                if (currentSim == SimState.RUNNING) {
                                     return@addOnMapClickListener false
                                 }
                                 val screenPoint = map.projection.toScreenLocation(latLng)
@@ -628,7 +628,7 @@ fun MapScreen(
                 }
             )
 
-            val isSimActive = uiState.simState == SimState.RUNNING || uiState.simState == SimState.PAUSED
+            val isSimActive = uiState.simState == SimState.RUNNING
 
             // Floating Search Card at Top (Map-first layout)
             SearchCard(

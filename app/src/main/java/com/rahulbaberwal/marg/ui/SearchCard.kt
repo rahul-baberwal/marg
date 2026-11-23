@@ -77,7 +77,7 @@ fun SearchCard(
     var reorderMenuIdx by rememberSaveable { mutableStateOf<Int?>(null) }
 
     val hasRouteOrStops = uiState.waypoints.isNotEmpty() || (uiState.startPoint != null && uiState.endPoint != null)
-    val isSimActive = uiState.simState == SimState.RUNNING || uiState.simState == SimState.PAUSED
+    val isSimActive = uiState.simState == SimState.RUNNING
 
     Card(
         modifier = modifier.fillMaxWidth(),

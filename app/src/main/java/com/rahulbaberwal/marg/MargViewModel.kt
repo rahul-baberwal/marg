@@ -220,7 +220,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun isSimulationActive(): Boolean {
         val s = MockLocationService.state.value
-        return s == SimState.RUNNING || s == SimState.PAUSED
+        return s == SimState.RUNNING
     }
 
     fun setStart(p: P, label: String? = null) {
