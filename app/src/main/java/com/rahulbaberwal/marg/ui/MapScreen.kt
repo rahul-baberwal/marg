@@ -133,13 +133,18 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.iconKeepUpright
+import org.maplibre.android.style.layers.PropertyFactory.iconPadding
 import org.maplibre.android.style.layers.PropertyFactory.iconPitchAlignment
 import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
+import org.maplibre.android.style.layers.PropertyFactory.symbolAvoidEdges
+import org.maplibre.android.style.layers.PropertyFactory.textAllowOverlap
+import org.maplibre.android.style.layers.PropertyFactory.textIgnorePlacement
 import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.sources.GeoJsonOptions
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
@@ -548,13 +553,6 @@ fun MapScreen(
                                 mapBearing = map.cameraPosition.bearing.toFloat()
                             }
 
-                            // Keep pins and pointers rendered and synchronized when rotation/camera stops
-                            map.addOnCameraIdleListener {
-                                map.style?.let { style ->
-                                    updatePointsOnMap(style, vm.uiState.value)
-                                }
-                            }
-
                             // Apply Initial Map Layer
                             val builder = getMapStyleBuilder(ctx, uiState.selectedLayer)
                             map.setStyle(builder) { style ->
@@ -595,7 +593,7 @@ fun MapScreen(
                                 val screenPoint = map.projection.toScreenLocation(latLng)
                                 val features = map.queryRenderedFeatures(
                                     PointF(screenPoint.x, screenPoint.y),
-                                    "points-symbol-layer"
+                                    "start-point-layer", "end-point-layer", "waypoints-layer"
                                 )
                                 if (features.isNotEmpty()) {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -935,6 +933,7 @@ fun MapScreen(
             uiState = uiState,
             onSearch = { vm.search(it) },
             onClear = { vm.clearSearch() },
+            onClearHistory = { vm.clearRecentSearches() },
             onResultSelected = { res ->
                 val p = P(res.lat, res.lon)
                 when {
@@ -1030,6 +1029,13 @@ private fun findPinNearScreenPoint(
     return bestPinId
 }
 
+private fun getPointsGeoJsonOptions(): GeoJsonOptions = GeoJsonOptions()
+    .withTolerance(0f)
+    .withBuffer(512)
+    .withMinZoom(0)
+    .withMaxZoom(24)
+    .withCluster(false)
+
 private fun updateSinglePinTemporary(
     style: Style?,
     dragPinId: String?,
@@ -1037,41 +1043,34 @@ private fun updateSinglePinTemporary(
     uiState: MargUiState
 ) {
     if (style == null || dragPinId == null) return
-    val pointsSrc = style.getSourceAs<GeoJsonSource>("points-source") ?: return
-    val features = mutableListOf<Feature>()
-
-    // Start Pin
-    val startCoord = if (dragPinId == "start") newLatLng else uiState.startPoint?.let { LatLng(it.lat, it.lon) }
-    startCoord?.let {
-        val f = Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude))
-        f.addStringProperty("icon", if (uiState.mode == Mode.FIXED) "marker-fixed" else "marker-start")
-        f.addStringProperty("id", "start")
-        features.add(f)
-    }
-
-    // Waypoints
-    if (uiState.mode != Mode.FIXED) {
-        uiState.waypoints.forEachIndexed { idx, wp ->
-            val coord = if (dragPinId == "waypoint_$idx") newLatLng else LatLng(wp.lat, wp.lon)
-            val f = Feature.fromGeometry(Point.fromLngLat(coord.longitude, coord.latitude))
-            f.addStringProperty("icon", "marker-waypoint-${(idx + 1).coerceAtMost(10)}")
-            f.addStringProperty("id", "waypoint_$idx")
-            features.add(f)
+    when {
+        dragPinId == "start" -> {
+            val startSrc = style.getSourceAs<GeoJsonSource>("start-point-source") ?: return
+            val f = Feature.fromGeometry(Point.fromLngLat(newLatLng.longitude, newLatLng.latitude))
+            f.addStringProperty("icon", if (uiState.mode == Mode.FIXED) "marker-fixed" else "marker-start")
+            f.addStringProperty("id", "start")
+            startSrc.setGeoJson(FeatureCollection.fromFeatures(listOf(f)))
         }
-    }
-
-    // End Pin
-    if (uiState.mode != Mode.FIXED) {
-        val endCoord = if (dragPinId == "end") newLatLng else uiState.endPoint?.let { LatLng(it.lat, it.lon) }
-        endCoord?.let {
-            val f = Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude))
+        dragPinId == "end" -> {
+            val endSrc = style.getSourceAs<GeoJsonSource>("end-point-source") ?: return
+            val f = Feature.fromGeometry(Point.fromLngLat(newLatLng.longitude, newLatLng.latitude))
             f.addStringProperty("icon", "marker-end")
             f.addStringProperty("id", "end")
-            features.add(f)
+            endSrc.setGeoJson(FeatureCollection.fromFeatures(listOf(f)))
+        }
+        dragPinId.startsWith("waypoint_") -> {
+            val waypointsSrc = style.getSourceAs<GeoJsonSource>("waypoints-source") ?: return
+            val targetIdx = dragPinId.removePrefix("waypoint_").toIntOrNull() ?: return
+            val features = uiState.waypoints.mapIndexed { idx, wp ->
+                val coord = if (idx == targetIdx) newLatLng else LatLng(wp.lat, wp.lon)
+                val f = Feature.fromGeometry(Point.fromLngLat(coord.longitude, coord.latitude))
+                f.addStringProperty("icon", "marker-waypoint-${(idx + 1).coerceAtMost(10)}")
+                f.addStringProperty("id", "waypoint_$idx")
+                f
+            }
+            waypointsSrc.setGeoJson(FeatureCollection.fromFeatures(features))
         }
     }
-
-    pointsSrc.setGeoJson(FeatureCollection.fromFeatures(features))
 }
 
 private fun updateRouteOnMap(map: MapLibreMap?, style: Style?, route: RouteResult?) {
@@ -1096,55 +1095,116 @@ private fun updateRouteOnMap(map: MapLibreMap?, style: Style?, route: RouteResul
 
 private fun updatePointsOnMap(style: Style?, uiState: MargUiState) {
     if (style == null) return
-    var pointsSrc = style.getSourceAs<GeoJsonSource>("points-source")
-    if (pointsSrc == null) {
-        pointsSrc = GeoJsonSource("points-source")
-        style.addSource(pointsSrc)
+
+    // 1. Start Pin
+    var startSrc = style.getSourceAs<GeoJsonSource>("start-point-source")
+    if (startSrc == null) {
+        startSrc = GeoJsonSource("start-point-source", getPointsGeoJsonOptions())
+        style.addSource(startSrc)
     }
-    if (style.getLayer("points-symbol-layer") == null) {
+    if (style.getLayer("start-point-layer") == null) {
         style.addLayer(
-            SymbolLayer("points-symbol-layer", "points-source").withProperties(
+            SymbolLayer("start-point-layer", "start-point-source").withProperties(
                 iconImage(Expression.get("icon")),
                 iconAnchor(Property.ICON_ANCHOR_BOTTOM),
                 iconAllowOverlap(true),
                 iconIgnorePlacement(true),
+                textAllowOverlap(true),
+                textIgnorePlacement(true),
+                symbolAvoidEdges(false),
+                iconPadding(0f),
                 iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
                 iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_VIEWPORT),
                 iconKeepUpright(true)
-            )
+            ).apply {
+                minZoom = 0f
+                maxZoom = 24f
+            }
         )
     }
-    val features = mutableListOf<Feature>()
-
-    // Start Pin (Green Google Maps Pin with 'A' or 'H' for fixed)
-    uiState.startPoint?.let { p ->
-        val f = Feature.fromGeometry(Point.fromLngLat(p.lon, p.lat))
+    val startP = uiState.startPoint
+    if (startP != null) {
+        val f = Feature.fromGeometry(Point.fromLngLat(startP.lon, startP.lat))
         f.addStringProperty("icon", if (uiState.mode == Mode.FIXED) "marker-fixed" else "marker-start")
         f.addStringProperty("id", "start")
-        features.add(f)
+        startSrc.setGeoJson(FeatureCollection.fromFeatures(listOf(f)))
+    } else {
+        startSrc.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
     }
 
-    // Waypoints (Teal Google Maps Pin with '1', '2', etc.)
-    if (uiState.mode != Mode.FIXED) {
-        uiState.waypoints.forEachIndexed { idx, p ->
-            val f = Feature.fromGeometry(Point.fromLngLat(p.lon, p.lat))
+    // 2. End Pin (Destination)
+    var endSrc = style.getSourceAs<GeoJsonSource>("end-point-source")
+    if (endSrc == null) {
+        endSrc = GeoJsonSource("end-point-source", getPointsGeoJsonOptions())
+        style.addSource(endSrc)
+    }
+    if (style.getLayer("end-point-layer") == null) {
+        style.addLayer(
+            SymbolLayer("end-point-layer", "end-point-source").withProperties(
+                iconImage(Expression.get("icon")),
+                iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true),
+                textAllowOverlap(true),
+                textIgnorePlacement(true),
+                symbolAvoidEdges(false),
+                iconPadding(0f),
+                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
+                iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_VIEWPORT),
+                iconKeepUpright(true)
+            ).apply {
+                minZoom = 0f
+                maxZoom = 24f
+            }
+        )
+    }
+    val endP = uiState.endPoint
+    if (endP != null && uiState.mode != Mode.FIXED) {
+        val f = Feature.fromGeometry(Point.fromLngLat(endP.lon, endP.lat))
+        f.addStringProperty("icon", "marker-end")
+        f.addStringProperty("id", "end")
+        endSrc.setGeoJson(FeatureCollection.fromFeatures(listOf(f)))
+    } else {
+        endSrc.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+    }
+
+    // 3. Waypoints
+    var waypointsSrc = style.getSourceAs<GeoJsonSource>("waypoints-source")
+    if (waypointsSrc == null) {
+        waypointsSrc = GeoJsonSource("waypoints-source", getPointsGeoJsonOptions())
+        style.addSource(waypointsSrc)
+    }
+    if (style.getLayer("waypoints-layer") == null) {
+        style.addLayer(
+            SymbolLayer("waypoints-layer", "waypoints-source").withProperties(
+                iconImage(Expression.get("icon")),
+                iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true),
+                textAllowOverlap(true),
+                textIgnorePlacement(true),
+                symbolAvoidEdges(false),
+                iconPadding(0f),
+                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
+                iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_VIEWPORT),
+                iconKeepUpright(true)
+            ).apply {
+                minZoom = 0f
+                maxZoom = 24f
+            }
+        )
+    }
+    if (uiState.mode != Mode.FIXED && uiState.waypoints.isNotEmpty()) {
+        val features = uiState.waypoints.mapIndexed { idx, wp ->
+            val f = Feature.fromGeometry(Point.fromLngLat(wp.lon, wp.lat))
             f.addStringProperty("icon", "marker-waypoint-${(idx + 1).coerceAtMost(10)}")
             f.addStringProperty("id", "waypoint_$idx")
-            features.add(f)
+            f
         }
+        waypointsSrc.setGeoJson(FeatureCollection.fromFeatures(features))
+    } else {
+        waypointsSrc.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
     }
-
-    // Destination Pin (Red/Saffron Google Maps Pin with 'B')
-    if (uiState.mode != Mode.FIXED) {
-        uiState.endPoint?.let { p ->
-            val f = Feature.fromGeometry(Point.fromLngLat(p.lon, p.lat))
-            f.addStringProperty("icon", "marker-end")
-            f.addStringProperty("id", "end")
-            features.add(f)
-        }
-    }
-
-    pointsSrc.setGeoJson(FeatureCollection.fromFeatures(features))
 }
 
 private fun updateUserPositionOnMap(style: Style?, pos: P?) {
@@ -1184,7 +1244,7 @@ private fun initMapLayersAndSources(context: Context, style: Style, layer: MapLa
 
     // 1. Route Source & Line Layer
     if (style.getSource("route-source") == null) {
-        style.addSource(GeoJsonSource("route-source"))
+        style.addSource(GeoJsonSource("route-source", getPointsGeoJsonOptions()))
     }
     if (style.getLayer("route-line-layer") == null) {
         style.addLayer(
@@ -1197,27 +1257,84 @@ private fun initMapLayersAndSources(context: Context, style: Style, layer: MapLa
         )
     }
 
-    // 2. Points (Start, End, Waypoints) Source & Google Maps Pin Symbol Layer
-    if (style.getSource("points-source") == null) {
-        style.addSource(GeoJsonSource("points-source"))
+    // 2. Start Pin Source & Layer
+    if (style.getSource("start-point-source") == null) {
+        style.addSource(GeoJsonSource("start-point-source", getPointsGeoJsonOptions()))
     }
-    if (style.getLayer("points-symbol-layer") == null) {
+    if (style.getLayer("start-point-layer") == null) {
         style.addLayer(
-            SymbolLayer("points-symbol-layer", "points-source").withProperties(
+            SymbolLayer("start-point-layer", "start-point-source").withProperties(
                 iconImage(Expression.get("icon")),
                 iconAnchor(Property.ICON_ANCHOR_BOTTOM),
                 iconAllowOverlap(true),
                 iconIgnorePlacement(true),
+                textAllowOverlap(true),
+                textIgnorePlacement(true),
+                symbolAvoidEdges(false),
+                iconPadding(0f),
                 iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
                 iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_VIEWPORT),
                 iconKeepUpright(true)
-            )
+            ).apply {
+                minZoom = 0f
+                maxZoom = 24f
+            }
         )
     }
 
-    // 3. User Location ("Me") Source & Pulsing Layer
+    // 3. End Pin (Destination) Source & Layer
+    if (style.getSource("end-point-source") == null) {
+        style.addSource(GeoJsonSource("end-point-source", getPointsGeoJsonOptions()))
+    }
+    if (style.getLayer("end-point-layer") == null) {
+        style.addLayer(
+            SymbolLayer("end-point-layer", "end-point-source").withProperties(
+                iconImage(Expression.get("icon")),
+                iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true),
+                textAllowOverlap(true),
+                textIgnorePlacement(true),
+                symbolAvoidEdges(false),
+                iconPadding(0f),
+                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
+                iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_VIEWPORT),
+                iconKeepUpright(true)
+            ).apply {
+                minZoom = 0f
+                maxZoom = 24f
+            }
+        )
+    }
+
+    // 4. Waypoints Source & Layer
+    if (style.getSource("waypoints-source") == null) {
+        style.addSource(GeoJsonSource("waypoints-source", getPointsGeoJsonOptions()))
+    }
+    if (style.getLayer("waypoints-layer") == null) {
+        style.addLayer(
+            SymbolLayer("waypoints-layer", "waypoints-source").withProperties(
+                iconImage(Expression.get("icon")),
+                iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true),
+                textAllowOverlap(true),
+                textIgnorePlacement(true),
+                symbolAvoidEdges(false),
+                iconPadding(0f),
+                iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_VIEWPORT),
+                iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_VIEWPORT),
+                iconKeepUpright(true)
+            ).apply {
+                minZoom = 0f
+                maxZoom = 24f
+            }
+        )
+    }
+
+    // 5. User Location ("Me") Source & Pulsing Layer
     if (style.getSource("me-source") == null) {
-        style.addSource(GeoJsonSource("me-source"))
+        style.addSource(GeoJsonSource("me-source", getPointsGeoJsonOptions()))
     }
     if (style.getLayer("me-layer") == null) {
         style.addLayer(

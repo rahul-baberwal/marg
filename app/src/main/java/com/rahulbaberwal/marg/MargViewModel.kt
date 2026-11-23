@@ -12,6 +12,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,6 +102,7 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     private val KEY_MODE = stringPreferencesKey("mode")
     private val KEY_HAS_SEEN_GUIDE = booleanPreferencesKey("has_seen_feature_guide")
     private val KEY_THEME_MODE = stringPreferencesKey("app_theme_mode")
+    private val KEY_SEARCH_HISTORY = stringPreferencesKey("search_history_json")
 
     // Combined UI State
     val uiState: StateFlow<MargUiState> = combine(
@@ -168,6 +171,12 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
                     Mode.entries.find { it.name == m }?.let {
                         _mode.value = it
                         MockLocationService.isFixedMode = (it == Mode.FIXED)
+                    }
+                }
+                prefs[KEY_SEARCH_HISTORY]?.let { json ->
+                    val saved = deserializeRecentSearches(json)
+                    if (saved.isNotEmpty()) {
+                        _recentSearches.value = saved.take(10)
                     }
                 }
             }
@@ -510,9 +519,53 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun addRecent(res: SearchResult) {
         val list = _recentSearches.value.toMutableList()
-        list.removeAll { it.lat == res.lat && it.lon == res.lon }
+        list.removeAll { (it.lat == res.lat && it.lon == res.lon) || it.name.equals(res.name, ignoreCase = true) }
         list.add(0, res)
-        _recentSearches.value = list.take(10)
+        val trimmed = list.take(10)
+        _recentSearches.value = trimmed
+        viewModelScope.launch {
+            ctx.dataStore.edit { it[KEY_SEARCH_HISTORY] = serializeRecentSearches(trimmed) }
+        }
+    }
+
+    fun clearRecentSearches() {
+        _recentSearches.value = emptyList()
+        viewModelScope.launch {
+            ctx.dataStore.edit { it.remove(KEY_SEARCH_HISTORY) }
+        }
+    }
+
+    private fun serializeRecentSearches(list: List<SearchResult>): String {
+        val arr = JSONArray()
+        for (item in list) {
+            val obj = JSONObject()
+            obj.put("name", item.name)
+            obj.put("details", item.details)
+            obj.put("lat", item.lat)
+            obj.put("lon", item.lon)
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    private fun deserializeRecentSearches(jsonStr: String): List<SearchResult> {
+        if (jsonStr.isBlank()) return emptyList()
+        val list = mutableListOf<SearchResult>()
+        try {
+            val arr = JSONArray(jsonStr)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                list.add(
+                    SearchResult(
+                        name = obj.optString("name"),
+                        details = obj.optString("details"),
+                        lat = obj.optDouble("lat"),
+                        lon = obj.optDouble("lon")
+                    )
+                )
+            }
+        } catch (_: Exception) {}
+        return list
     }
 
     private fun resolveReverseGeocode(p: P, onResult: (String) -> Unit) {
