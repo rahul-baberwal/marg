@@ -402,12 +402,22 @@ class MockLocationService : Service() {
         }
 
         if (!isFinished) {
+            val pauseResumeIcon = if (isPaused) R.drawable.ic_action_play else R.drawable.ic_action_pause
+            val pauseResumeTitle = if (isPaused) "Resume" else "Pause"
             builder.addAction(
-                0,
-                if (isPaused) "▶ Resume" else "⏸ Pause",
-                pauseResume
+                NotificationCompat.Action.Builder(
+                    pauseResumeIcon,
+                    pauseResumeTitle,
+                    pauseResume
+                ).build()
             )
-            builder.addAction(0, "⏹ Stop", stop)
+            builder.addAction(
+                NotificationCompat.Action.Builder(
+                    R.drawable.ic_action_stop,
+                    "Stop",
+                    stop
+                ).build()
+            )
         }
 
         return builder.build()

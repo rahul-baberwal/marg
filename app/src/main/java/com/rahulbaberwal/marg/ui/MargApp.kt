@@ -2,6 +2,7 @@ package com.rahulbaberwal.marg.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -22,6 +23,7 @@ fun MargApp(
     modifier: Modifier = Modifier,
     vm: MargViewModel = viewModel()
 ) {
+    var showSplashScreen by rememberSaveable { mutableStateOf(true) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
     BackHandler(enabled = showSettings) {
@@ -44,6 +46,17 @@ fun MargApp(
             SettingsScreen(
                 vm = vm,
                 onBack = { showSettings = false }
+            )
+        }
+
+        // App Splash / Loading screen (1-2 sec) with app logo, name, developer avatar & name
+        AnimatedVisibility(
+            visible = showSplashScreen,
+            enter = fadeIn(),
+            exit = fadeOut(animationSpec = tween(450))
+        ) {
+            SplashScreen(
+                onTimeout = { showSplashScreen = false }
             )
         }
     }

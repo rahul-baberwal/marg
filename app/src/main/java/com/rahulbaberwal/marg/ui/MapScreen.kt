@@ -49,7 +49,6 @@ import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapVert
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -165,15 +164,7 @@ fun MapScreen(
     var showSearchOverlay by rememberSaveable { mutableStateOf(false) }
     var searchTarget by rememberSaveable { mutableStateOf("start") }
     var showLayerPicker by rememberSaveable { mutableStateOf(false) }
-    var showFeatureGuide by rememberSaveable { mutableStateOf(false) }
     var mapBearing by rememberSaveable { mutableStateOf(0f) }
-
-    val hasSeenGuide by vm.hasSeenFeatureGuide.collectAsState()
-    LaunchedEffect(hasSeenGuide) {
-        if (hasSeenGuide == false) {
-            showFeatureGuide = true
-        }
-    }
 
     // Auto-recheck mock location status when user returns to app from Developer Settings
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -826,30 +817,7 @@ fun MapScreen(
                     }
                 }
 
-                // 4. Quick Guide & Hints Button (Always available)
-                FilledTonalIconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        showFeatureGuide = true
-                    },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .shadow(4.dp, CircleShape)
-                        .semantics { contentDescription = "Quick guide and feature hints" },
-                    shape = CircleShape,
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // 5. Settings & About Button (Always available)
+                // 4. Settings & About Button (Always available)
                 FilledTonalIconButton(
                     onClick = onOpenAbout,
                     modifier = Modifier
@@ -950,18 +918,6 @@ fun MapScreen(
                 showLayerPicker = false
             },
             onDismiss = { showLayerPicker = false }
-        )
-    }
-
-    // Quick Feature Guide & Hints Bottom Sheet
-    if (showFeatureGuide) {
-        FeatureGuideSheet(
-            onDismiss = { dontShowAgain ->
-                showFeatureGuide = false
-                if (dontShowAgain) {
-                    vm.setFeatureGuideDontShowAgain()
-                }
-            }
         )
     }
 }
