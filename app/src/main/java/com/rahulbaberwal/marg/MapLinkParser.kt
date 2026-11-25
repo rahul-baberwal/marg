@@ -80,7 +80,7 @@ object MapLinkParser {
         val path = uri.path ?: ""
 
         val isMargRoute = scheme == "marg" ||
-                (host.contains("rahulbaberwal.github.io") && path.contains("route")) ||
+                host.contains("github.io") ||
                 uri.getQueryParameter("start") != null
 
         if (!isMargRoute) return null

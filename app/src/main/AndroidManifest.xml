@@ -71,6 +71,8 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="rahul-baberwal.github.io" android:pathPrefix="/marg" />
+                <data android:scheme="http" android:host="rahul-baberwal.github.io" android:pathPrefix="/marg" />
                 <data android:scheme="https" android:host="rahulbaberwal.github.io" android:pathPrefix="/marg" />
                 <data android:scheme="http" android:host="rahulbaberwal.github.io" android:pathPrefix="/marg" />
             </intent-filter>

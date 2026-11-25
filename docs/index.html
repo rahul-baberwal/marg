@@ -18,6 +18,11 @@
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Hanken+Grotesk:wght@400;600&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script>
+    if (window.location.search && (window.location.search.includes('start=') || window.location.search.includes('mode='))) {
+      window.location.href = "marg://route" + window.location.search;
+    }
+  </script>
 </head>
 
 <body>
@@ -38,6 +43,7 @@
           <p>Marg is a fake GPS location changer for Android. Simulate driving, walking, cycling or train journeys along real roads and tracks, or mock a fixed location with natural indoor walking jitter. Made for testing apps in India and worldwide.</p>
           <div class="cta">
             <a class="btn phonepe" href="https://indusapp.store/3y8hrlz0" target="_blank" rel="noopener">PhonePe Appstore</a>
+            <a class="btn phonepe" style="background:#24af61;" href="https://apkpure.com/p/com.rahulbaberwal.marg" target="_blank" rel="noopener">APKPure</a>
             <a class="btn ghost" href="#setup">How to set it up</a>
           </div>
         </div>

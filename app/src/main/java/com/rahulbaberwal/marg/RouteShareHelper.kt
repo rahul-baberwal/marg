@@ -46,7 +46,7 @@ object RouteShareHelper {
         }
 
         val queryString = params.joinToString("&")
-        return "https://rahulbaberwal.github.io/marg/route.html?$queryString"
+        return "https://rahul-baberwal.github.io/marg/route.html?$queryString"
     }
 
     fun shareRoute(context: Context, uiState: MargUiState) {
@@ -76,8 +76,8 @@ object RouteShareHelper {
             append("\n👉 Open in Marg app:\n")
             append(shareUrl)
             append("\n\n📱 Don't have Marg? Download here:\n")
-            append("• Play Store: https://play.google.com/store/apps/details?id=com.rahulbaberwal.marg\n")
-            append("• Indus Appstore: https://indusapp.store/3y8hrlz0")
+            append("• Indus Appstore: https://indusapp.store/3y8hrlz0\n")
+            append("• APKPure: https://apkpure.com/p/com.rahulbaberwal.marg")
         }
 
         val intent = Intent(Intent.ACTION_SEND).apply {

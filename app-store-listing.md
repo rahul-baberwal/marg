@@ -69,8 +69,8 @@ Anti-cheat engines, work-tracking apps, and live location trackers easily detect
 4. Set your point(s) using Search, Coordinates, or the Map, and tap **Start**!
 
 ### 📱 DOWNLOAD LINKS
-• **Google Play Store:** https://play.google.com/store/apps/details?id=com.rahulbaberwal.marg
 • **PhonePe Appstore (Indus Appstore):** https://indusapp.store/3y8hrlz0
+• **APKPure:** https://apkpure.com/p/com.rahulbaberwal.marg
 
 ---
 
