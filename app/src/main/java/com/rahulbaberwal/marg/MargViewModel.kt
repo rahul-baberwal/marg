@@ -66,6 +66,12 @@ data class MargUiState(
     val activePinChip: String? = null, // "start", "end", or waypoint index
 )
 
+data class IncomingMapLocation(
+    val lat: Double,
+    val lon: Double,
+    val label: String
+)
+
 class MargViewModel(app: Application) : AndroidViewModel(app) {
 
     private val ctx get() = getApplication<Application>()
@@ -94,6 +100,19 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
     val hasSeenFeatureGuide: StateFlow<Boolean?> = _hasSeenFeatureGuide.asStateFlow()
     private val _themeMode = MutableStateFlow(AppThemeMode.SYSTEM)
     val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
+
+    private val _incomingMapLocation = MutableStateFlow<IncomingMapLocation?>(null)
+    val incomingMapLocation: StateFlow<IncomingMapLocation?> = _incomingMapLocation.asStateFlow()
+
+    private val _isResolvingMapLink = MutableStateFlow(false)
+    val isResolvingMapLink: StateFlow<Boolean> = _isResolvingMapLink.asStateFlow()
+
+    private val _routeLoadedEvent = MutableStateFlow<String?>(null)
+    val routeLoadedEvent: StateFlow<String?> = _routeLoadedEvent.asStateFlow()
+
+    fun clearRouteLoadedEvent() {
+        _routeLoadedEvent.value = null
+    }
 
     private val KEY_LAYER = intPreferencesKey("map_layer")
     private val KEY_SPEED = floatPreferencesKey("speed_kmh")
@@ -369,6 +388,66 @@ class MargViewModel(app: Application) : AndroidViewModel(app) {
         _endPoint.value = null
         _endLabel.value = ""
         _route.value = null
+    }
+
+    fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _isResolvingMapLink.value = true
+            val parsedIntent = MapLinkParser.parseIntent(intent)
+            _isResolvingMapLink.value = false
+            when (parsedIntent) {
+                is ParsedMapIntent.FullRoute -> {
+                    withContext(Dispatchers.Main) {
+                        loadImportedRoute(parsedIntent.route)
+                    }
+                }
+                is ParsedMapIntent.SingleLocation -> {
+                    val loc = parsedIntent.location
+                    _incomingMapLocation.value = IncomingMapLocation(loc.lat, loc.lon, loc.label)
+                }
+                null -> {}
+            }
+        }
+    }
+
+    fun loadImportedRoute(data: ParsedRouteData) {
+        if (isSimulationActive()) return
+        setMode(data.mode)
+        _startPoint.value = data.start
+        _startLabel.value = data.startLabel.ifEmpty { "%.5f, %.5f".format(data.start.lat, data.start.lon) }
+        if (data.mode == Mode.FIXED) {
+            MockLocationService.fixedLocation = data.start
+            _endPoint.value = null
+            _endLabel.value = ""
+            _waypoints.value = emptyList()
+            _waypointLabels.value = emptyList()
+        } else {
+            _endPoint.value = data.end
+            _endLabel.value = data.endLabel.ifEmpty { data.end?.let { "%.5f, %.5f".format(it.lat, it.lon) } ?: "" }
+            _waypoints.value = data.waypoints
+            _waypointLabels.value = data.waypointLabels
+            if (data.end != null) {
+                fetchRoute()
+            }
+        }
+        _routeLoadedEvent.value = "Route imported: ${data.startLabel.ifEmpty { "Start" }} → ${data.endLabel.ifEmpty { "Destination" }}"
+    }
+
+    fun clearIncomingMapLocation() {
+        _incomingMapLocation.value = null
+    }
+
+    fun applyIncomingLocation(target: String) {
+        val loc = _incomingMapLocation.value ?: return
+        val p = P(loc.lat, loc.lon)
+        when (target) {
+            "start", "fixed" -> setStart(p, loc.label)
+            "destination" -> setEnd(p, loc.label)
+            "stop" -> addWaypoint(p, initialLabel = loc.label)
+            else -> setStart(p, loc.label)
+        }
+        _incomingMapLocation.value = null
     }
 
     fun swapPoints() {

@@ -74,6 +74,14 @@ Anti-cheat engines, work-tracking apps, and live location trackers easily detect
 
 ---
 
+## What's New in Version 2.1.0 (Build 5)
+• **Open with Marg (Map Links & Shares):** Click any Google Maps, OpenStreetMap, Apple Maps link or geo: URI in browser/WhatsApp/messages and open directly in Marg with one tap.
+• **1-Tap Current GPS Location:** Instantly set Start, Destination, or Fixed location using your device's real GPS before starting simulation.
+• **Shareable Route Links:** Share planned routes via a custom link with start, destination, and stops. Opening the link loads the route directly in Marg (or redirects to download if not installed).
+• **Pause & Edit Flow:** Pause simulation anytime to add intermediate stops, adjust coordinates, or edit pointers, then resume seamlessly.
+
+---
+
 ## What's New in Version 2.0.0 (Build 4)
 • **Theme Appearance Switcher:** Switch effortlessly between System (Auto), Light, and Dark modes directly in the app with high-contrast UI tokens.
 • **Interactive In-App Feature Guide:** Step-by-step illustrated hints explaining pin hold-and-drop road snapping, multi-stop routing, compass controls, and travel modes.

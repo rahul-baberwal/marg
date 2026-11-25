@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -66,6 +68,8 @@ fun SearchCard(
     onSwapClick: () -> Unit,
     onClearStart: () -> Unit,
     onClearEnd: () -> Unit,
+    onUseMyLocationForStart: (() -> Unit)? = null,
+    onShareRoute: (() -> Unit)? = null,
     onRemoveWaypoint: (Int) -> Unit = {},
     onMoveWaypoint: (Int, Int) -> Unit = { _, _ -> },
     onAddStopClick: (Int) -> Unit = {},
@@ -317,17 +321,31 @@ fun SearchCard(
                         )
                     }
 
-                    if (!isSimActive && uiState.startPoint != null) {
-                        IconButton(
-                            onClick = onClearStart,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Clear start",
-                                tint = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.size(16.dp)
-                            )
+                    if (!isSimActive) {
+                        if (uiState.startPoint != null) {
+                            IconButton(
+                                onClick = onClearStart,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear start",
+                                    tint = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        } else if (onUseMyLocationForStart != null) {
+                            IconButton(
+                                onClick = onUseMyLocationForStart,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MyLocation,
+                                    contentDescription = "Set Start to current GPS location",
+                                    tint = Color(0xFF16A34A),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -580,16 +598,33 @@ fun SearchCard(
                                 fontWeight = FontWeight.Medium
                             )
 
-                            TextButton(
-                                onClick = { isExpanded = false },
-                                modifier = Modifier.height(34.dp)
-                            ) {
-                                Text(
-                                    text = "Done ✓",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF16A34A)
-                                )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (onShareRoute != null && (uiState.route != null || (uiState.mode == Mode.FIXED && uiState.startPoint != null))) {
+                                    IconButton(
+                                        onClick = onShareRoute,
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = "Share route",
+                                            tint = Color(0xFF16A34A),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(4.dp))
+                                }
+
+                                TextButton(
+                                    onClick = { isExpanded = false },
+                                    modifier = Modifier.height(34.dp)
+                                ) {
+                                    Text(
+                                        text = "Done ✓",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF16A34A)
+                                    )
+                                }
                             }
                         }
                     }

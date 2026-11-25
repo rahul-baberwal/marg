@@ -24,10 +24,70 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- geo: URI scheme (e.g. geo:lat,lon or geo:0,0?q=...) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="geo" />
+            </intent-filter>
+
+            <!-- Google Maps web links -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:host="maps.google.com" />
+                <data android:host="www.google.com" android:pathPrefix="/maps" />
+                <data android:host="google.com" android:pathPrefix="/maps" />
+                <data android:host="maps.app.goo.gl" />
+                <data android:host="goo.gl" android:pathPrefix="/maps" />
+            </intent-filter>
+
+            <!-- OpenStreetMap & Apple Maps links -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:host="www.openstreetmap.org" />
+                <data android:host="openstreetmap.org" />
+                <data android:host="osm.org" />
+                <data android:host="maps.apple.com" />
+            </intent-filter>
+
+            <!-- Marg Deep Link for Shared Routes -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="rahulbaberwal.github.io" android:pathPrefix="/marg" />
+                <data android:scheme="http" android:host="rahulbaberwal.github.io" android:pathPrefix="/marg" />
+            </intent-filter>
+
+            <!-- Marg Custom Scheme for Shared Routes -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="marg" />
+            </intent-filter>
+
+            <!-- Share Sheet: Receive location shared as text from Google Maps / WhatsApp / etc -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
 

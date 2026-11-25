@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Train
 import androidx.compose.material.icons.filled.Warning
@@ -42,6 +43,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -100,6 +102,7 @@ fun BottomControlSheet(
     onOpenMockLocationSettings: () -> Unit,
     onDismissMockLocationCard: () -> Unit,
     onClearAllStops: () -> Unit = {},
+    onShareRoute: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isRunning = uiState.simState == SimState.RUNNING
@@ -493,6 +496,24 @@ fun BottomControlSheet(
                             Text("Stop", style = MaterialTheme.typography.labelLarge)
                         }
                     }
+                }
+            }
+
+            // Share Route Button (shown when route or fixed location is ready)
+            if (canStart) {
+                FilledTonalIconButton(
+                    onClick = onShareRoute,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .semantics { contentDescription = "Share route" },
+                    shape = CircleShape
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }

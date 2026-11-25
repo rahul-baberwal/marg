@@ -46,10 +46,14 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,6 +64,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -103,6 +108,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlin.math.roundToInt
 import com.rahulbaberwal.marg.DeveloperSettingsHelper
+import com.rahulbaberwal.marg.DeviceLocationHelper
+import com.rahulbaberwal.marg.GeocodingRepository
 import com.rahulbaberwal.marg.MapLayer
 import com.rahulbaberwal.marg.MargUiState
 import com.rahulbaberwal.marg.MargViewModel
@@ -110,8 +117,11 @@ import com.rahulbaberwal.marg.Mode
 import com.rahulbaberwal.marg.P
 import com.rahulbaberwal.marg.R
 import com.rahulbaberwal.marg.RouteResult
+import com.rahulbaberwal.marg.RouteShareHelper
 import com.rahulbaberwal.marg.SimState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -229,6 +239,103 @@ fun MapScreen(
                     duration = SnackbarDuration.Short
                 )
             }
+        }
+    }
+
+    var targetForGpsLocation by rememberSaveable { mutableStateOf<String?>(null) }
+
+    fun fetchGpsLocation(targetSlot: String) {
+        scope.launch {
+            android.widget.Toast.makeText(context, "Acquiring GPS location...", android.widget.Toast.LENGTH_SHORT).show()
+            val loc = DeviceLocationHelper.getCurrentLocation(context)
+            if (loc != null) {
+                val p = P(loc.latitude, loc.longitude)
+                val name = withContext(Dispatchers.IO) {
+                    GeocodingRepository.reverse(loc.latitude, loc.longitude)
+                } ?: "Current GPS Location"
+
+                when {
+                    targetSlot == "start" -> vm.setStart(p, name)
+                    targetSlot == "destination" -> vm.setEnd(p, name)
+                    targetSlot.startsWith("add_stop") -> {
+                        val insertIdx = targetSlot.removePrefix("add_stop_").toIntOrNull() ?: -1
+                        vm.addWaypoint(p, insertIdx, name)
+                    }
+                    targetSlot.startsWith("edit_stop_") -> {
+                        val idx = targetSlot.removePrefix("edit_stop_").toIntOrNull()
+                        if (idx != null) {
+                            vm.updateWaypoint(idx, p, name)
+                        }
+                    }
+                    else -> vm.setStart(p, name)
+                }
+
+                mapRef.value?.easeCamera(
+                    CameraUpdateFactory.newLatLngZoom(LatLng(p.lat, p.lon), 15.0),
+                    600
+                )
+                showSearchOverlay = false
+                vm.clearSearch()
+                android.widget.Toast.makeText(context, "GPS location set: $name", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                android.widget.Toast.makeText(context, "Unable to get GPS fix. Please verify device location is on.", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val gpsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        val fineGranted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseGranted = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (fineGranted || coarseGranted) {
+            val target = targetForGpsLocation ?: "start"
+            targetForGpsLocation = null
+            fetchGpsLocation(target)
+        } else {
+            android.widget.Toast.makeText(context, "Location permission is required to acquire GPS location", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val requestGpsLocation: (String) -> Unit = { targetSlot ->
+        if (uiState.simState == SimState.RUNNING) {
+            android.widget.Toast.makeText(context, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+        } else {
+            targetForGpsLocation = targetSlot
+            if (!DeviceLocationHelper.hasLocationPermission(context)) {
+                gpsPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            } else {
+                fetchGpsLocation(targetSlot)
+            }
+        }
+    }
+
+    // Observer for route loaded from shared link
+    val routeLoadedMsg by vm.routeLoadedEvent.collectAsState()
+    LaunchedEffect(routeLoadedMsg) {
+        if (routeLoadedMsg != null) {
+            android.widget.Toast.makeText(context, routeLoadedMsg, android.widget.Toast.LENGTH_LONG).show()
+            val start = uiState.startPoint
+            if (start != null) {
+                mapRef.value?.easeCamera(
+                    CameraUpdateFactory.newLatLngZoom(LatLng(start.lat, start.lon), 14.5),
+                    600
+                )
+            }
+            vm.clearRouteLoadedEvent()
+        }
+    }
+
+    // Observer for map link resolving state
+    val isResolvingLink by vm.isResolvingMapLink.collectAsState()
+    LaunchedEffect(isResolvingLink) {
+        if (isResolvingLink) {
+            android.widget.Toast.makeText(context, "Resolving map link...", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -399,7 +506,8 @@ fun MapScreen(
                     vm.recheckMockLocation()
                 },
                 onDismissMockLocationCard = { vm.dismissMockLocationCard() },
-                onClearAllStops = { vm.clearWaypoints() }
+                onClearAllStops = { vm.clearWaypoints() },
+                onShareRoute = { RouteShareHelper.shareRoute(context, uiState) }
             )
         },
         modifier = modifier.fillMaxSize()
@@ -635,7 +743,7 @@ fun MapScreen(
                 uiState = uiState,
                 onStartClick = {
                     if (isSimActive) {
-                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         searchTarget = "start"
                         showSearchOverlay = true
@@ -643,7 +751,7 @@ fun MapScreen(
                 },
                 onEndClick = {
                     if (isSimActive) {
-                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         searchTarget = "destination"
                         showSearchOverlay = true
@@ -651,7 +759,7 @@ fun MapScreen(
                 },
                 onAddStopClick = { insertIdx ->
                     if (isSimActive) {
-                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         searchTarget = "add_stop_$insertIdx"
                         showSearchOverlay = true
@@ -659,7 +767,7 @@ fun MapScreen(
                 },
                 onEditStopClick = { idx ->
                     if (isSimActive) {
-                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         searchTarget = "edit_stop_$idx"
                         showSearchOverlay = true
@@ -667,7 +775,7 @@ fun MapScreen(
                 },
                 onSwapClick = {
                     if (isSimActive) {
-                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         vm.swapPoints()
@@ -675,7 +783,7 @@ fun MapScreen(
                 },
                 onClearStart = {
                     if (isSimActive) {
-                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         vm.clearStart()
@@ -683,15 +791,17 @@ fun MapScreen(
                 },
                 onClearEnd = {
                     if (isSimActive) {
-                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         vm.clearEnd()
                     }
                 },
+                onUseMyLocationForStart = { requestGpsLocation("start") },
+                onShareRoute = { RouteShareHelper.shareRoute(context, uiState) },
                 onRemoveWaypoint = { idx ->
                     if (isSimActive) {
-                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         vm.removeWaypoint(idx)
@@ -699,7 +809,7 @@ fun MapScreen(
                 },
                 onMoveWaypoint = { from, to ->
                     if (isSimActive) {
-                        android.widget.Toast.makeText(context, "Stop simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Pause simulation to edit route pointers", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         vm.moveWaypoint(from, to)
@@ -990,6 +1100,7 @@ fun MapScreen(
             onSearch = { vm.search(it) },
             onClear = { vm.clearSearch() },
             onClearHistory = { vm.clearRecentSearches() },
+            onUseMyLocation = { requestGpsLocation(searchTarget) },
             onResultSelected = { res ->
                 val p = P(res.lat, res.lon)
                 when {
@@ -1029,6 +1140,123 @@ fun MapScreen(
                 showLayerPicker = false
             },
             onDismiss = { showLayerPicker = false }
+        )
+    }
+
+    // Dialog for Opening/Importing Location from external map links (geo: / Google Maps / OSM)
+    val incomingLoc by vm.incomingMapLocation.collectAsState()
+    if (incomingLoc != null) {
+        val loc = incomingLoc!!
+        AlertDialog(
+            onDismissRequest = { vm.clearIncomingMapLocation() },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = Color(0xFF16A34A),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Import Map Location",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = loc.label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Coordinates: %.5f, %.5f".format(loc.lat, loc.lon),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "Choose how to apply this location in Marg:",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            },
+            confirmButton = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (uiState.mode == Mode.FIXED) {
+                        Button(
+                            onClick = {
+                                vm.applyIncomingLocation("fixed")
+                                mapRef.value?.easeCamera(
+                                    CameraUpdateFactory.newLatLngZoom(LatLng(loc.lat, loc.lon), 15.0),
+                                    600
+                                )
+                                android.widget.Toast.makeText(context, "Fixed location set: ${loc.label}", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                        ) {
+                            Text("Set as Fixed Location")
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                vm.applyIncomingLocation("destination")
+                                mapRef.value?.easeCamera(
+                                    CameraUpdateFactory.newLatLngZoom(LatLng(loc.lat, loc.lon), 15.0),
+                                    600
+                                )
+                                android.widget.Toast.makeText(context, "Destination set: ${loc.label}", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                        ) {
+                            Text("Set as Destination")
+                        }
+
+                        FilledTonalButton(
+                            onClick = {
+                                vm.applyIncomingLocation("start")
+                                mapRef.value?.easeCamera(
+                                    CameraUpdateFactory.newLatLngZoom(LatLng(loc.lat, loc.lon), 15.0),
+                                    600
+                                )
+                                android.widget.Toast.makeText(context, "Start set: ${loc.label}", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Set as Start")
+                        }
+
+                        if (uiState.startPoint != null && uiState.endPoint != null) {
+                            OutlinedButton(
+                                onClick = {
+                                    vm.applyIncomingLocation("stop")
+                                    mapRef.value?.easeCamera(
+                                        CameraUpdateFactory.newLatLngZoom(LatLng(loc.lat, loc.lon), 15.0),
+                                        600
+                                    )
+                                    android.widget.Toast.makeText(context, "Stop added: ${loc.label}", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Add as Intermediate Stop")
+                            }
+                        }
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { vm.clearIncomingMapLocation() }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 }
