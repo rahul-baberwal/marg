@@ -1,0 +1,7 @@
+- Added deep linking support for geo: and map links to open locations directly in Marg.
+- Added current GPS location pickup button before starting simulation.
+- Added route sharing feature to share routes via link.
+- Multi-stop route planning: allow adding stops and editing waypoints while paused.
+- Set Drive mode default speed to 60 km/h.
+- Improved route history reliability and map marker interactions.
+- Performance and rendering optimizations with MapLibre GL Native.
