@@ -1,0 +1,42 @@
+Categories:
+  - Navigation
+  - Development
+License: GPL-3.0-only
+WebSite: https://rahul-baberwal.github.io/marg/
+SourceCode: https://github.com/RahulBaberwal/marg
+IssueTracker: https://github.com/RahulBaberwal/marg/issues
+
+AutoName: Marg
+
+Description: |-
+  Marg is a calm, native, map-first Android utility designed for developers,
+  QA engineers, and testers who need high-precision mock GPS simulation and
+  multi-modal route movement.
+
+  Simulate driving, walking, cycling, or train journeys along real roads,
+  footpaths, and railway tracks, or mock a fixed location with natural indoor
+  walking jitter and drift.
+
+  Features:
+  * 5 simulation modes: Drive, Walk, Cycle, Train, and Fixed Location
+  * Natural indoor walking jitter and room-to-room drift
+  * Multi-stop route planner with draggable waypoints
+  * Live interactive ongoing navigation notification
+  * Real-time compass needle and MapLibre GL engine
+  * Zero proprietary dependencies, zero tracking, zero ads
+
+RepoType: git
+Repo: https://github.com/RahulBaberwal/marg.git
+
+Builds:
+  - versionName: 2.1.0
+    versionCode: 5
+    commit: v2.1.0
+    subdir: app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 2.1.0
+CurrentVersionCode: 5

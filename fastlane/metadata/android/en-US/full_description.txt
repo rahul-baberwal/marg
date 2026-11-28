@@ -1,0 +1,12 @@
+Marg is a calm, native, map-first Android utility designed for developers, QA engineers, and testers who need high-precision mock GPS simulation and multi-modal route movement.
+
+Simulate driving, walking, cycling, or train journeys along real roads, footpaths, and railway tracks, or mock a fixed location with natural indoor walking jitter and drift.
+
+Key Features:
+- 5 Simulation Modes: Drive (realistic road kinematics up to 200 km/h), Walk (pedestrian footpaths), Cycle (bike-friendly paths), Train (OpenStreetMap railway routing), and Fixed Location.
+- Natural Indoor Walking Jitter: Realistic room-to-room walking drift and subtle satellite noise with configurable boundary radius (0 to 30 meters). Prevents detection from frozen GPS coordinates.
+- Multi-Stop Route Planner: Add, inspect, and drag intermediate waypoints between start and destination. Snaps cleanly to real roads.
+- Live Interactive Notification: Ongoing navigation shade card showing real-time progress bar, speed, remaining ETA, and distance with pause/resume/stop controls.
+- Real-Time Compass & Map Engine: Compass needle rotates with camera bearing; multiple map layers (Standard, Satellite, Terrain, Dark) powered by MapLibre GL Native.
+- Deep Link Support: Open coordinates and routes directly from map links or share routes with teammates.
+- 100% Free & Open Source: Zero trackers, zero analytics, zero advertisements, and no user registration required. All coordinate calculations remain strictly local on your device.

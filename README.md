@@ -1,6 +1,7 @@
 # Marg – Fake GPS & Route Mocker for Android
 
-[![Release](https://img.shields.io/badge/Release-v2.0.0%20(Build%204)-0E3B43?style=for-the-badge)](https://github.com/RahulBaberwal/marg/releases)
+[![Release](https://img.shields.io/badge/Release-v2.1.0%20(Build%205)-0E3B43?style=for-the-badge)](https://github.com/RahulBaberwal/marg/releases)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-8.0%2B%20(API%2026%E2%80%9336)-FF9933?style=for-the-badge&logo=android)](https://developer.android.com)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203%20Expressive-4285F4?style=for-the-badge&logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
 [![Indus Appstore](https://img.shields.io/badge/Indus%20Appstore-PhonePe-6739B7?style=for-the-badge)](https://indusapp.store/3y8hrlz0)
@@ -137,3 +138,10 @@ Release builds output to:
 * [OpenStreetMap](https://www.openstreetmap.org/) contributors (ODbL)
 * [MapLibre GL](https://maplibre.org/) Native SDK
 * [Project OSRM](http://project-osrm.org/) Routing Engine
+
+---
+
+## 📜 License
+
+This project is licensed under the **GNU General Public License v3.0 (GNU GPL-3.0-only)**. See the [LICENSE](LICENSE) file for the full license text.
+

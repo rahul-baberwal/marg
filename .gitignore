@@ -16,12 +16,16 @@ bin/
 gen/
 out/
 build/
+/build/
 app/build/
+/app/build/
 **/build/
 .gradle/
+/.gradle/
 
 # Android Studio & IntelliJ IDEA
 .idea/
+/.idea/
 *.iml
 .navigation/
 captures/
@@ -45,6 +49,7 @@ secrets.properties
 
 # Local configuration file (contains local machine SDK paths)
 local.properties
+/local.properties
 
 # Log files
 *.log

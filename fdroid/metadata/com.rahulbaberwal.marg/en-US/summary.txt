@@ -1,0 +1,1 @@
+Fake GPS location changer: simulate drive, walk, cycle, train & indoor drift.

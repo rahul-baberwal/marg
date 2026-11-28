@@ -54,10 +54,23 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             if (keystorePropertiesFile != null && resolvedKeyFile != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
+        }
+    }
+    applicationVariants.all {
+        outputs.all {
+            val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val type = if (buildType.name == "release") "" else "-debug"
+            output?.outputFileName = "Marg-v${versionName}$type.apk"
         }
     }
     compileOptions {
