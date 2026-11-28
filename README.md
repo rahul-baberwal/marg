@@ -1,6 +1,6 @@
 # Marg – Fake GPS & Route Mocker for Android
 
-[![Release](https://img.shields.io/badge/Release-v2.1.0%20(Build%205)-0E3B43?style=for-the-badge)](https://github.com/RahulBaberwal/marg/releases)
+[![Release](https://img.shields.io/badge/Release-v2.1.0%20(Build%205)-0E3B43?style=for-the-badge)](https://github.com/rahul-baberwal/marg/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-8.0%2B%20(API%2026%E2%80%9336)-FF9933?style=for-the-badge&logo=android)](https://developer.android.com)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203%20Expressive-4285F4?style=for-the-badge&logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
@@ -102,7 +102,7 @@ graph TD
 ### Build Commands
 ```bash
 # Clone repository
-git clone https://github.com/RahulBaberwal/marg.git
+git clone https://github.com/rahul-baberwal/marg.git
 cd marg
 
 # Build debug APK
@@ -129,7 +129,7 @@ Release builds output to:
 ## 👨‍💻 Developer & Open Source Credits
 
 * **Developer:** [Rahul Baberwal](https://rahulbaberwal.com)
-* **GitHub:** [@RahulBaberwal](https://github.com/RahulBaberwal)
+* **GitHub:** [@rahul-baberwal](https://github.com/rahul-baberwal)
 * **LinkedIn:** [/in/rahul-baberwal](https://www.linkedin.com/in/rahul-baberwal/)
 * **Instagram:** [@rahulbaberwal.in](https://www.instagram.com/rahulbaberwal.in/)
 * **Email:** [im@rahulbaberwal.com](mailto:im@rahulbaberwal.com)

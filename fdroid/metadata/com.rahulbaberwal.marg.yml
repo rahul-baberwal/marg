@@ -3,8 +3,8 @@ Categories:
   - Development
 License: GPL-3.0-only
 WebSite: https://rahul-baberwal.github.io/marg/
-SourceCode: https://github.com/RahulBaberwal/marg
-IssueTracker: https://github.com/RahulBaberwal/marg/issues
+SourceCode: https://github.com/rahul-baberwal/marg
+IssueTracker: https://github.com/rahul-baberwal/marg/issues
 
 AutoName: Marg
 
@@ -26,7 +26,7 @@ Description: |-
   * Zero proprietary dependencies, zero tracking, zero ads
 
 RepoType: git
-Repo: https://github.com/RahulBaberwal/marg.git
+Repo: https://github.com/rahul-baberwal/marg.git
 
 Builds:
   - versionName: 2.1.0

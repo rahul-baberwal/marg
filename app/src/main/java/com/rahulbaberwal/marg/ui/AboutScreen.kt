@@ -332,7 +332,7 @@ fun AboutScreen(
                         SocialLinkChip(
                             drawableRes = R.drawable.ic_github,
                             label = "GitHub",
-                            onClick = { launchUrl(context, "https://github.com/RahulBaberwal") },
+                            onClick = { launchUrl(context, "https://github.com/rahul-baberwal") },
                             modifier = Modifier.weight(1f)
                         )
                         SocialLinkChip(
